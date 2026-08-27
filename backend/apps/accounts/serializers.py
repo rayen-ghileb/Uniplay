@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.utils.encoding import force_bytes, force_str
+from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -23,7 +23,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "email": self.user.email,
             "first_name": self.user.first_name,
             "last_name": self.user.last_name,
-            "is_admin": self.user.is_admin,
+            "is_admin": getattr(self.user, "is_admin", False),
         }
         return data
 
@@ -55,9 +55,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
     def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("No user with this email address.")
-        return value
+        return value.lower()
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):

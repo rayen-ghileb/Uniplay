@@ -28,7 +28,7 @@ class Terrain(models.Model):
         default=60,
         help_text="Duration of each bookable slot in minutes"
     )
-    photo = models.ImageField(upload_to="terrains/photos/", blank=True, null=True)
+    photo = models.ImageField(upload_to='terrains/', null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
+import os
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -121,9 +122,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-# Email (console backend for development — prints to terminal)
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "noreply@uniplay.esprit.tn"
+# Email via Gmail SMTP
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "rayen.ghileb2003@gmail.com"
+EMAIL_HOST_PASSWORD = "wazs umke bfox peia"
+DEFAULT_FROM_EMAIL = "UniPlay <rayen.ghileb2003@gmail.com>"
 
 # Frontend URL (used in password reset emails)
 FRONTEND_URL = "http://localhost:5173"
@@ -134,3 +140,8 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Sports terrain reservation platform for Université ESPRIT",
     "VERSION": "1.0.0",
 }
+# Base url to serve media files
+MEDIA_URL = '/media/'
+
+# Path where files will be stored on your computer/server
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

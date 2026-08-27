@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand Colors */
+  --color-ink: #0A0A0A;
+  --color-carbon: #1A1A1A;
+  --color-crimson: #D81E2C;
+  --color-crimsonDark: #8F0F1A;
+  --color-steel: #8A8D93;
+  --color-fog: #F4F4F5;
+
+  /* Typography */
+  --font-display: "Anton", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
