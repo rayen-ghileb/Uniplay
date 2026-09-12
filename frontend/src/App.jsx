@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./router/ProtectedRoute.jsx";
 import { AdminRoute } from "./router/AdminRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import SportPage from "./pages/SportPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
@@ -14,6 +15,8 @@ import AdminLayout from "./components/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminTerrains from "./pages/admin/AdminTerrains.jsx";
 import AdminReservations from "./pages/admin/AdminReservations.jsx";
+import AdminSports from "./pages/admin/AdminSports.jsx";
+import AdminUsers from "./pages/admin/AdminUsers.jsx";
 
 // Layout wrapper that renders Navbar and wraps protected content for students
 function AppLayout({ children }) {
@@ -40,6 +43,7 @@ function App() {
   return (
     <Routes>
       {/* Public Routes */}
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -51,6 +55,8 @@ function App() {
 
       {/* --- PHASE 4: ADMIN ROUTES --- */}
       <Route path="/admin" element={<AdminAppLayout><AdminDashboard /></AdminAppLayout>} />
+      <Route path="/admin/users" element={<AdminAppLayout><AdminUsers /></AdminAppLayout>} />
+      <Route path="/admin/sports" element={<AdminAppLayout><AdminSports /></AdminAppLayout>} />
       <Route path="/admin/terrains" element={<AdminAppLayout><AdminTerrains /></AdminAppLayout>} />
       <Route path="/admin/reservations" element={<AdminAppLayout><AdminReservations /></AdminAppLayout>} />
     </Routes>

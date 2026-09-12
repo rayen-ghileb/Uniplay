@@ -11,7 +11,27 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "is_admin"]
+        fields = ["id", "username", "email", "first_name", "last_name", "is_active", "is_admin", "date_joined"]
+        read_only_fields = ["date_joined"]
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "password", "first_name", "last_name"]
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password=validated_data["password"],
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+            is_active=False  # Forces account to remain pending until admin approval
+        )
+        return user
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -24,6 +44,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "first_name": self.user.first_name,
             "last_name": self.user.last_name,
             "is_admin": getattr(self.user, "is_admin", False),
+            "is_active": self.user.is_active,
         }
         return data
 
@@ -37,7 +58,7 @@ class StudentIdValidationSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         ids = list(dict.fromkeys(attrs["ids"]))
-        users = User.objects.filter(username__in=ids)
+        users = User.objects.filter(username__in=ids, is_active=True)
         found = {u.username for u in users}
         attrs["valid"] = [
             {

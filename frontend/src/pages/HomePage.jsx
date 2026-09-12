@@ -3,16 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api.js";
 
-// --- INLINE ICONS ---
 const InfoIcon = ({ className = "h-5 w-5" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
-const ChevronRightIcon = ({ className = "h-5 w-5" }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
   </svg>
 );
 
@@ -34,7 +27,6 @@ const AlertIcon = ({ className = "h-5 w-5" }) => (
   </svg>
 );
 
-// Helper tag generator for sport cards matching original design
 const getSportTag = (sportName) => {
   const name = sportName.toLowerCase();
   if (name.includes("padel")) return "GAZON SYNTHÉTIQUE";
@@ -52,20 +44,17 @@ export default function HomePage({ user: propUser }) {
   const [isHighlighted, setIsHighlighted] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // 1. Fetch Current User (Guarantees data even if propUser is missing)
   const { data: fetchedUser } = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
       const res = await api.get("/auth/me/");
       return res.data;
     },
-    // Don't fetch if the parent already passed a valid user prop
     enabled: !propUser, 
   });
 
   const currentUser = propUser || fetchedUser;
 
-  // 2. Fetch Sports List
   const { data: sports = [] } = useQuery({
     queryKey: ["sports"],
     queryFn: async () => {
@@ -74,7 +63,6 @@ export default function HomePage({ user: propUser }) {
     },
   });
 
-  // 3. Fetch User Reservations
   const { data: reservations = [] } = useQuery({
     queryKey: ["reservations"],
     queryFn: async () => {
@@ -83,7 +71,6 @@ export default function HomePage({ user: propUser }) {
     },
   });
 
-  // 4. Cancel Mutation
   const cancelMutation = useMutation({
     mutationFn: async (id) => {
       setErrorMessage(null);
@@ -93,14 +80,11 @@ export default function HomePage({ user: propUser }) {
       queryClient.invalidateQueries(["reservations"]);
     },
     onError: (error) => {
-      const detail =
-        error.response?.data?.detail ||
-        "Impossible d'annuler cette réservation pour le moment.";
+      const detail = error.response?.data?.detail || "Impossible d'annuler cette réservation pour le moment.";
       setErrorMessage(detail);
     },
   });
 
-  // Filter and sort for ALL upcoming reservations
   const now = new Date();
   const upcomingReservations = reservations
     .filter((res) => {
@@ -126,20 +110,18 @@ export default function HomePage({ user: propUser }) {
     setTimeout(() => setIsHighlighted(false), 2000);
   };
 
-  // Helper function to get default sport images
   const getDefaultSportImage = (sportName) => {
     const name = sportName.toLowerCase();
     if (name.includes("padel")) return "/images/padel.png";
     if (name.includes("foot")) return "/images/football.png";
     if (name.includes("basket")) return "/images/basketball.png";
-    return "/images/generic-sport-default.png"; // Catch-all fallback
+    return "/images/generic-sport-default.png";
   };
 
   return (
     <div className="min-h-screen bg-fog px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
         
-        {/* HERO BANNER */}
         <div className="relative overflow-hidden rounded-3xl bg-ink p-8 text-white shadow-lg">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div>
@@ -163,7 +145,6 @@ export default function HomePage({ user: propUser }) {
           </div>
         </div>
 
-        {/* CONTEXTUAL ERROR BANNER */}
         {errorMessage && (
           <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 shadow-sm">
             <div className="flex items-center gap-3">
@@ -179,7 +160,6 @@ export default function HomePage({ user: propUser }) {
           </div>
         )}
 
-        {/* RÉSERVER UN TERRAIN (SPORTS GRID) */}
         <div
           ref={sportsRef}
           className={`space-y-4 rounded-3xl transition-all duration-500 p-2 ${
@@ -202,15 +182,9 @@ export default function HomePage({ user: propUser }) {
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {sports.map((sport) => {
-              // Calculate available & maintenance counts
-              const totalTerrains = sport.terrain_count || 0;
-              const maintenanceCount = sport.maintenance_count || 0;
-              const availableCount = sport.available_count !== undefined 
-                ? sport.available_count 
-                : Math.max(0, totalTerrains - maintenanceCount);
-
-              // Widget is only fully locked if there are absolutely 0 terrains for this sport
-              const isClickable = totalTerrains > 0;
+              const activeCount = sport.active_terrains_count || 0;
+              const maintenanceCount = sport.maintenance_terrains_count || 0;
+              const isClickable = (activeCount + maintenanceCount) > 0;
               const tag = getSportTag(sport.name);
 
               return (
@@ -225,7 +199,6 @@ export default function HomePage({ user: propUser }) {
                 >
                   <div className="absolute top-0 right-0 -mr-6 -mt-6 h-28 w-28 rounded-full bg-emerald-500/10 blur-xl pointer-events-none transition-all group-hover:bg-emerald-500/20" />
 
-                  {/* DYNAMIC SPORT CARD HEADER WITH IMAGE */}
                   <div className="flex items-start justify-between relative z-10">
                     <span className="rounded-md bg-gray-100 px-2.5 py-1 text-[10px] font-bold tracking-wider text-steel uppercase">
                       {tag}
@@ -241,25 +214,33 @@ export default function HomePage({ user: propUser }) {
                   </div>
 
                   <div className="relative z-10 mt-4">
-                    <h3 className="font-display text-2xl text-ink">
-                      {sport.name}
-                    </h3>
+                    {/* FLEX ROW FOR TITLE AND ACTIVE BADGE */}
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-display text-2xl text-ink">
+                        {sport.name}
+                      </h3>
+                      {activeCount > 0 && (
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-100">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                            {activeCount} {activeCount > 1 ? "Actifs" : "Actif"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     
-                    <div className="mt-2 flex flex-col gap-0.5">
-                      {availableCount > 0 ? (
-                        <p className="text-xs font-bold text-emerald-600">
-                          {availableCount} {availableCount > 1 ? "terrains dispos" : "terrain dispo"}
-                        </p>
-                      ) : (
-                        <p className="text-xs font-bold text-gray-500">
-                          Aucun terrain dispo
-                        </p>
+                    <div className="mt-1 flex flex-col items-start gap-1">
+                      {activeCount === 0 && (
+                        <p className="text-xs font-bold text-gray-500">Aucun terrain dispo</p>
                       )}
                       
                       {maintenanceCount > 0 && (
-                        <p className="text-xs font-bold text-amber-600">
-                          {maintenanceCount} en maintenance
-                        </p>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-100">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
+                            {maintenanceCount} en maintenance
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -269,7 +250,6 @@ export default function HomePage({ user: propUser }) {
           </div>
         </div>
 
-        {/* PROCHAINES RÉSERVATIONS */}
         <div className="space-y-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-steel px-1">
             VOS PROCHAINES RÉSERVATIONS
@@ -337,7 +317,6 @@ export default function HomePage({ user: propUser }) {
           )}
         </div>
 
-        {/* INFOS PRATIQUES & RÈGLEMENT CAMPUS */}
         <div className="space-y-3 pt-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-steel px-1">
             INFOS PRATIQUES & RÈGLEMENT CAMPUS

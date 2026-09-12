@@ -1,8 +1,9 @@
-from rest_framework import generics, permissions
-from rest_framework.response import Response
-from django.utils import timezone
 from datetime import datetime, timedelta
+from django.utils import timezone
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 
+from apps.reservations.models import Reservation, TimeSlot
 from .models import Sport, Terrain
 from .serializers import (
     SportSerializer, 
@@ -10,7 +11,6 @@ from .serializers import (
     TerrainListSerializer, 
     TerrainDetailSerializer
 )
-from apps.reservations.models import TimeSlot
 
 
 class SportListView(generics.ListAPIView):
@@ -85,3 +85,39 @@ class TerrainTimeSlotsView(generics.GenericAPIView):
         ]
 
         return Response(data)
+
+
+class AdminSportListView(generics.ListCreateAPIView):
+    """Allows admins to list all sports (active & inactive) or create a new sport."""
+    queryset = Sport.objects.all().order_by("-id")
+    serializer_class = SportSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class AdminSportDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Allows admins to update, patch, or soft-delete/deactivate a sport."""
+    queryset = Sport.objects.all()
+    serializer_class = SportSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def destroy(self, request, *args, **kwargs):
+        sport = self.get_object()
+        
+        # 1. Deactivate the sport (hides it from student homepage)
+        sport.is_active = False
+        sport.save()
+
+        # 2. Set all associated terrains to inactive
+        terrains = Terrain.objects.filter(sport=sport)
+        terrains.update(status='inactive')
+
+        # 3. Cancel confirmed reservations for those terrains
+        Reservation.objects.filter(
+            terrain__in=terrains,
+            status='confirmed'
+        ).update(status='cancelled')
+
+        return Response(
+            {"detail": "Le sport a été désactivé, ses terrains rendus inactifs et les réservations annulées."},
+            status=status.HTTP_200_OK
+        )

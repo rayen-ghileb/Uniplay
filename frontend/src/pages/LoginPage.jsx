@@ -27,7 +27,7 @@ export default function LoginPage() {
       navigate(user.is_admin ? "/admin" : "/");
     } catch (err) {
       const msg = err.response?.data?.detail;
-      setServerError(msg || "Identifiants invalides. Veuillez réessayer.");
+      setServerError(msg || "Identifiants invalides ou compte non encore approuvé par un administrateur.");
     } finally {
       setIsLoading(false);
     }
@@ -81,8 +81,11 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <Link to="/forgot-password" className="text-sm font-semibold text-crimson hover:text-crimsonDark">
+      <div className="mt-6 flex flex-col items-center gap-2 border-t border-gray-100 pt-5 text-center">
+        <Link to="/register" className="text-sm font-bold text-ink hover:text-crimson transition-colors">
+          Pas encore de compte ? <span className="text-crimson">Demander un accès</span>
+        </Link>
+        <Link to="/forgot-password" className="text-xs font-semibold text-gray-500 hover:text-crimson transition-colors">
           Mot de passe oublié ?
         </Link>
       </div>

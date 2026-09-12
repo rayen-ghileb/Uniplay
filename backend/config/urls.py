@@ -13,7 +13,7 @@ urlpatterns = [
     path("api/reservations/", include("apps.reservations.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/", include("apps.accounts.urls")),  # Fixed: added 'apps.' prefix
+    
     path("api/admin/", include("apps.admin_panel.urls")),
 ]
 

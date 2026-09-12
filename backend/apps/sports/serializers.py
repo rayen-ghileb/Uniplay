@@ -3,14 +3,38 @@ from .models import Sport, Terrain
 
 
 class SportSerializer(serializers.ModelSerializer):
-    terrain_count = serializers.SerializerMethodField()
+    active_terrains_count = serializers.SerializerMethodField()
+    maintenance_terrains_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Sport
-        fields = ["id", "name", "description", "icon", "is_active", "terrain_count"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "icon",
+            "is_active",
+            "active_terrains_count",
+            "maintenance_terrains_count",
+        ]
 
-    def get_terrain_count(self, obj):
-        return obj.terrains.filter(status=Terrain.Status.AVAILABLE).count()
+    def get_active_terrains_count(self, obj):
+        try:
+            terrains = getattr(obj, 'terrains', getattr(obj, 'terrain_set', None))
+            if terrains is None:
+                return 0
+            return terrains.filter(status__iexact="available").count()
+        except Exception:
+            return 0
+
+    def get_maintenance_terrains_count(self, obj):
+        try:
+            terrains = getattr(obj, 'terrains', getattr(obj, 'terrain_set', None))
+            if terrains is None:
+                return 0
+            return terrains.filter(status__iexact="maintenance").count()
+        except Exception:
+            return 0
 
 
 class TerrainListSerializer(serializers.ModelSerializer):
@@ -18,7 +42,6 @@ class TerrainListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Terrain
-        # Reverted to only include fields that actually exist on your model
         fields = ["id", "name", "sport_name", "capacity", "photo", "status"]
 
 
@@ -27,7 +50,6 @@ class TerrainDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Terrain
-        # Reverted to only include fields that actually exist on your model
         fields = [
             "id",
             "name",
@@ -42,15 +64,25 @@ class TerrainDetailSerializer(serializers.ModelSerializer):
 
 class SportDetailSerializer(serializers.ModelSerializer):
     terrains = serializers.SerializerMethodField()
-    terrain_count = serializers.SerializerMethodField()
+    active_terrains_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Sport
-        fields = ["id", "name", "description", "icon", "is_active", "terrain_count", "terrains"]
+        fields = ["id", "name", "description", "icon", "is_active", "active_terrains_count", "terrains"]
 
-    def get_terrain_count(self, obj):
-        return obj.terrains.filter(status=Terrain.Status.AVAILABLE).count()
+    def get_active_terrains_count(self, obj):
+        try:
+            terrains = getattr(obj, 'terrains', getattr(obj, 'terrain_set', None))
+            return terrains.filter(status__iexact="available").count() if terrains else 0
+        except Exception:
+            return 0
 
     def get_terrains(self, obj):
-        available_terrains = obj.terrains.all()
-        return TerrainListSerializer(available_terrains, many=True).data
+        try:
+            terrains = getattr(obj, 'terrains', getattr(obj, 'terrain_set', None))
+            if not terrains:
+                return []
+            available_terrains = terrains.exclude(status__iexact='inactive')
+            return TerrainListSerializer(available_terrains, many=True).data
+        except Exception:
+            return []

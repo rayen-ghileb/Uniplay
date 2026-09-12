@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UserSerializer,
+    RegisterSerializer,
     StudentIdValidationSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
@@ -21,16 +22,40 @@ from .serializers import (
 User = get_user_model()
 
 
+class RegisterView(generics.CreateAPIView):
+    """Handles student registration. Accounts are inactive by default."""
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class AdminUserListView(generics.ListAPIView):
+    """Lists all users. Orders pending (inactive) accounts at the very top."""
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny] # In production, restrict to admin permissions
+
+    def get_queryset(self):
+        # is_active=False comes first, then ordered by newest registrations
+        return User.objects.all().order_by("is_active", "-date_joined")
+
+
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Allows admins to approve (patch is_active=True) or reject (destroy) accounts."""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny] # In production, restrict to admin permissions
+
+
 class UserListView(generics.ListAPIView):
     """
-    Returns all registered users except administrators for the searchable participant dropdown menu.
+    Returns all registered and active users except administrators for the searchable participant dropdown menu.
     """
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Excludes admins from the dropdown results
-        return User.objects.filter(is_admin=False).order_by("first_name", "last_name")
+        # Excludes admins and pending accounts from the dropdown results
+        return User.objects.filter(is_admin=False, is_active=True).order_by("first_name", "last_name")
 
 
 class LoginView(TokenObtainPairView):

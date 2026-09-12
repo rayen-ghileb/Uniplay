@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { getAdminReservations, cancelAdminReservation, exportReservationsCSV } from "../../services/admin";
 
+const DownloadIcon = ({ className = "h-4 w-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+  </svg>
+);
+
+const SearchIcon = ({ className = "h-4 w-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+  </svg>
+);
+
 export default function AdminReservations() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +61,12 @@ export default function AdminReservations() {
   };
 
   const getDisplayStatus = (res) => {
-    if (res.status === 'cancelled') return 'cancelled';
-    
+    if (res.status === "cancelled") return "cancelled";
+
     if (res.date && res.end_time) {
       const slotEndDateTime = new Date(`${res.date}T${res.end_time}`);
       if (slotEndDateTime < new Date()) {
-        return 'finished';
+        return "finished";
       }
     }
     return res.status;
@@ -62,52 +75,76 @@ export default function AdminReservations() {
   const getStatusBadge = (res) => {
     const status = getDisplayStatus(res);
     switch (status) {
-      case 'finished':
-        return <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">Terminé</span>;
-      case 'confirmed':
-        return <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700">Confirmée</span>;
-      case 'cancelled':
-        return <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700">Annulée</span>;
+      case "finished":
+        return (
+          <span className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-bold uppercase text-steel">
+            Terminé
+          </span>
+        );
+      case "confirmed":
+        return (
+          <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">
+            Confirmée
+          </span>
+        );
+      case "cancelled":
+        return (
+          <span className="rounded-md bg-crimson/10 px-2 py-1 text-[10px] font-bold uppercase text-crimsonDark">
+            Annulée
+          </span>
+        );
       default:
-        return <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-gray-100 text-gray-700">{status}</span>;
+        return (
+          <span className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-700">
+            {status}
+          </span>
+        );
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-black text-ink uppercase tracking-tight">Réservations Globales</h1>
-          <p className="text-xs font-bold text-steel uppercase tracking-wider mt-1">Supervision de l'ensemble du campus</p>
+          <h1 className="font-display text-3xl uppercase tracking-tight text-ink">Réservations globales</h1>
+          <p className="mt-1 text-xs font-bold uppercase tracking-wider text-steel">
+            Supervision de l'ensemble du campus
+          </p>
         </div>
-        
-        <div className="flex space-x-3 w-full sm:w-auto">
-          <input 
-            type="text" 
-            placeholder="Rechercher matricule ou terrain..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="border-gray-200 rounded-xl p-2 text-sm focus:ring-ink focus:border-ink w-full sm:w-64"
-          />
-          <button 
+
+        <div className="flex w-full gap-3 sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher matricule ou terrain..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-fog py-2.5 pl-9 pr-3 text-sm font-medium text-ink placeholder:text-gray-400 transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+            />
+          </div>
+          <button
             onClick={handleExportCSV}
-            className="bg-ink text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-black whitespace-nowrap"
+            className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-ink px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-all hover:bg-gradient-to-r hover:from-crimson hover:to-crimsonDark"
           >
-            📥 Exporter CSV
+            <DownloadIcon />
+            Exporter CSV
           </button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-steel font-bold uppercase tracking-widest mt-8">Chargement...</p>
+        <div className="flex h-40 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-crimson border-t-transparent"></div>
+        </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-max">
-              <thead className="bg-fog border-b border-gray-100 text-steel font-bold uppercase text-[10px] tracking-wider">
+            <table className="w-full min-w-max text-left text-sm">
+              <thead className="border-b border-gray-100 bg-fog text-[10px] font-bold uppercase tracking-wider text-steel">
                 <tr>
                   <th className="p-4">ID</th>
-                  <th className="p-4">Étudiant (Matricule)</th>
+                  <th className="p-4">Étudiant (matricule)</th>
                   <th className="p-4">Terrain</th>
                   <th className="p-4">Créneau</th>
                   <th className="p-4">Statut</th>
@@ -118,12 +155,12 @@ export default function AdminReservations() {
                 {reservations.map((res) => {
                   const displayStatus = getDisplayStatus(res);
                   return (
-                    <tr key={res.id} className="hover:bg-gray-50">
+                    <tr key={res.id} className="hover:bg-fog">
                       <td className="p-4 text-steel">#{res.id}</td>
                       <td className="p-4">
                         <div className="font-bold text-ink">{res.organizer_name}</div>
-                        <div className="text-[10px] text-steel uppercase">{res.organizer_matricule}</div>
-                        
+                        <div className="font-mono text-[10px] uppercase text-steel">{res.organizer_matricule}</div>
+
                         {res.participants && res.participants.length > 0 && (
                           <div className="mt-1 text-[11px] text-gray-500">
                             <span className="font-semibold text-steel">Participants: </span>
@@ -133,24 +170,22 @@ export default function AdminReservations() {
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-ink">{res.terrain_name}</div>
-                        <div className="text-[10px] text-steel uppercase">{res.sport_name}</div>
+                        <div className="text-[10px] uppercase text-steel">{res.sport_name}</div>
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-ink">{res.date}</div>
-                        <div className="text-[10px] text-steel uppercase">
+                        <div className="text-[10px] uppercase text-steel">
                           {res.start_time?.slice(0, 5)} - {res.end_time?.slice(0, 5)}
                         </div>
                       </td>
-                      <td className="p-4">
-                        {getStatusBadge(res)}
-                      </td>
+                      <td className="p-4">{getStatusBadge(res)}</td>
                       <td className="p-4 text-right">
-                        {displayStatus === 'confirmed' && (
-                          <button 
-                            onClick={() => handleCancel(res.id)} 
-                            className="text-rose-600 text-xs font-bold uppercase hover:underline"
+                        {displayStatus === "confirmed" && (
+                          <button
+                            onClick={() => handleCancel(res.id)}
+                            className="text-xs font-bold uppercase text-crimson hover:underline"
                           >
-                            Forcer Annulation
+                            Forcer annulation
                           </button>
                         )}
                       </td>
@@ -159,7 +194,9 @@ export default function AdminReservations() {
                 })}
                 {reservations.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-steel text-sm">Aucune réservation trouvée.</td>
+                    <td colSpan="6" className="p-8 text-center text-sm text-steel">
+                      Aucune réservation trouvée.
+                    </td>
                   </tr>
                 )}
               </tbody>
