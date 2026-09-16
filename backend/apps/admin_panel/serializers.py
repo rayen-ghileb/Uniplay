@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.sports.models import Sport, Terrain
 from apps.reservations.models import Reservation
+from apps.accounts.models import Reclamation
 
 
 class AdminSportSerializer(serializers.ModelSerializer):
@@ -44,3 +45,45 @@ class AdminReservationSerializer(serializers.ModelSerializer):
             f"{p.first_name} {p.last_name}".strip()
             for p in obj.participants.all()
         ]
+
+
+
+class AdminReclamationListSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reclamation
+        fields = ['id', 'sender_name', 'created_at']
+
+    def get_sender_name(self, obj):
+        full_name = f"{obj.sender.first_name} {obj.sender.last_name}".strip()
+        return full_name if full_name else obj.sender.username
+
+
+class AdminReclamationDetailSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+    sender_email = serializers.CharField(source='sender.email', read_only=True)
+    sender_phone_number = serializers.CharField(source='sender.phone_number', read_only=True)
+    sender_classe = serializers.CharField(source='sender.classe', read_only=True)
+    sender_specialite = serializers.CharField(source='sender.specialite', read_only=True)
+    sender_photo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reclamation
+        fields = [
+            'id', 'message', 'created_at',
+            'sender_name', 'sender_username', 'sender_email',
+            'sender_phone_number', 'sender_classe', 'sender_specialite', 'sender_photo',
+        ]
+
+    def get_sender_name(self, obj):
+        full_name = f"{obj.sender.first_name} {obj.sender.last_name}".strip()
+        return full_name if full_name else obj.sender.username
+
+    def get_sender_photo(self, obj):
+        request = self.context.get('request')
+        if obj.sender.photo:
+            url = obj.sender.photo.url
+            return request.build_absolute_uri(url) if request else url
+        return None

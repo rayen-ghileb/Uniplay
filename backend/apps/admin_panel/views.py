@@ -11,8 +11,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .permissions import IsAdminUser
-from .serializers import AdminSportSerializer, AdminTerrainSerializer, AdminReservationSerializer
+from .serializers import AdminSportSerializer, AdminTerrainSerializer, AdminReservationSerializer, AdminReclamationListSerializer, AdminReclamationDetailSerializer 
 from apps.sports.models import Sport, Terrain
+from apps.accounts.models import Reclamation
 from apps.reservations.models import TimeSlot, Reservation
 
 User = get_user_model()
@@ -210,3 +211,15 @@ class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
             ])
             
         return response
+
+class AdminReclamationViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAdminUser]
+    queryset = Reclamation.objects.select_related('sender').all()
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminReclamationDetailSerializer
+        return AdminReclamationListSerializer
+
+    def get_serializer_context(self):
+        return {'request': self.request}

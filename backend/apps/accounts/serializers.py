@@ -5,31 +5,49 @@ from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .models import Reclamation
+
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "is_active", "is_admin", "date_joined"]
+        fields = [
+            "id", "username", "email", "phone_number", "classe", "specialite", "photo",
+            "first_name", "last_name", "is_active", "is_admin", "date_joined",
+        ]
         read_only_fields = ["date_joined"]
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "first_name", "last_name", "email", "phone_number", "classe", "specialite"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    classe = serializers.CharField(required=True)
+    specialite = serializers.CharField(required=True)
+    photo = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "first_name", "last_name"]
+        fields = ["username", "email", "password", "phone_number", "classe", "specialite", "photo", "first_name", "last_name"]
 
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data["username"],
             email=validated_data["email"],
             password=validated_data["password"],
+            phone_number=validated_data["phone_number"],
+            classe=validated_data["classe"],
+            specialite=validated_data["specialite"],
+            photo=validated_data.get("photo"),
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
-            is_active=False  # Forces account to remain pending until admin approval
+            is_active=False
         )
         return user
 
@@ -97,3 +115,21 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate_current_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Mot de passe actuel incorrect.")
+        return value
+
+
+
+class ReclamationCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reclamation
+        fields = ["id", "message", "created_at"]
+        read_only_fields = ["id", "created_at"]

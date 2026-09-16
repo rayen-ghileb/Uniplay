@@ -9,14 +9,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from .permissions import IsAdmin
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UserSerializer,
+    StudentSerializer,
     RegisterSerializer,
     StudentIdValidationSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    ChangePasswordSerializer,
+    ReclamationCreateSerializer,
 )
 
 User = get_user_model()
@@ -94,8 +97,23 @@ class LogoutView(APIView):
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    ALLOWED_UPDATE_FIELDS = {"first_name", "last_name", "email", "phone_number", "classe", "specialite", "photo"}
+
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request):
+        disallowed = set(request.data.keys()) - self.ALLOWED_UPDATE_FIELDS
+        if disallowed:
+            return Response(
+                {"detail": f"Champs non modifiables ici: {', '.join(disallowed)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = {k: v for k, v in request.data.items() if k in self.ALLOWED_UPDATE_FIELDS}
+        serializer = UserSerializer(request.user, data=data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
 
@@ -160,3 +178,29 @@ class ValidateStudentIdsView(APIView):
                 "invalid": serializer.validated_data["invalid"],
             }
         )
+
+class AdminStudentListView(generics.ListAPIView):
+    """Read-only list of registered students (non-admin users) for 'Gestion des étudiants'."""
+    serializer_class = StudentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def get_queryset(self):
+        return User.objects.filter(is_admin=False).order_by("first_name", "last_name")
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save()
+        return Response({"detail": "Mot de passe modifié avec succès."}, status=status.HTTP_200_OK)
+
+class ReclamationCreateView(generics.CreateAPIView):
+    """Lets an authenticated student submit a réclamation."""
+    serializer_class = ReclamationCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)

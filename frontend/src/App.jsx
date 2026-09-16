@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./router/ProtectedRoute.jsx";
 import { AdminRoute } from "./router/AdminRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -9,6 +9,12 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import ReservationsPage from "./pages/ReservationsPage.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import ParametresLayout from "./components/ParametersLayout.jsx";
+import EditProfilePage from "./pages/parametres/EditProfilePage.jsx";
+import ChangePasswordPage from "./pages/parametres/ChangePasswordPage.jsx";
+import ReclamationsPage from "./pages/parametres/ReclamationsPage.jsx";
+import AdminReclamations from "./pages/admin/AdminReclamations.jsx";
 
 // Admin Imports
 import AdminLayout from "./components/AdminLayout.jsx";
@@ -17,6 +23,7 @@ import AdminTerrains from "./pages/admin/AdminTerrains.jsx";
 import AdminReservations from "./pages/admin/AdminReservations.jsx";
 import AdminSports from "./pages/admin/AdminSports.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
+import AdminStudents from "./pages/admin/AdminStudents.jsx";  // add this
 
 // Layout wrapper that renders Navbar and wraps protected content for students
 function AppLayout({ children }) {
@@ -52,13 +59,20 @@ function App() {
       <Route path="/" element={<AppLayout><HomePage /></AppLayout>} />
       <Route path="/sports/:sportId" element={<AppLayout><SportPage /></AppLayout>} />
       <Route path="/reservations" element={<AppLayout><ReservationsPage /></AppLayout>} />
+      <Route path="/profile" element={<AppLayout><ProfilePage /></AppLayout>} />
+      <Route path="/parametres" element={<Navigate to="/parametres/profil" replace />} />
+      <Route path="/parametres/profil" element={<AppLayout><ParametresLayout><EditProfilePage /></ParametresLayout></AppLayout>} />
+      <Route path="/parametres/mot-de-passe" element={<AppLayout><ParametresLayout><ChangePasswordPage /></ParametresLayout></AppLayout>} />
+      <Route path="/parametres/reclamations" element={<AppLayout><ParametresLayout><ReclamationsPage /></ParametresLayout></AppLayout>} />
 
       {/* --- PHASE 4: ADMIN ROUTES --- */}
       <Route path="/admin" element={<AdminAppLayout><AdminDashboard /></AdminAppLayout>} />
       <Route path="/admin/users" element={<AdminAppLayout><AdminUsers /></AdminAppLayout>} />
+      <Route path="/admin/students" element={<AdminAppLayout><AdminStudents /></AdminAppLayout>} />
       <Route path="/admin/sports" element={<AdminAppLayout><AdminSports /></AdminAppLayout>} />
       <Route path="/admin/terrains" element={<AdminAppLayout><AdminTerrains /></AdminAppLayout>} />
       <Route path="/admin/reservations" element={<AdminAppLayout><AdminReservations /></AdminAppLayout>} />
+      <Route path="/admin/reclamations" element={<AdminAppLayout><AdminReclamations /></AdminAppLayout>} />
     </Routes>
   );
 }

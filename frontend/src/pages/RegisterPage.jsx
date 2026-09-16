@@ -19,7 +19,22 @@ export default function RegisterPage() {
     setIsLoading(true);
     setServerError("");
     try {
-      await api.post("/auth/register/", data);
+      const formData = new FormData();
+      formData.append("username", data.username);
+      formData.append("email", data.email);
+      formData.append("password", data.password);
+      formData.append("first_name", data.first_name);
+      formData.append("last_name", data.last_name);
+      formData.append("phone_number", data.phone_number);
+      formData.append("classe", data.classe);
+      formData.append("specialite", data.specialite);
+      if (data.photo?.[0]) {
+        formData.append("photo", data.photo[0]);
+      }
+
+      await api.post("/auth/register/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setIsSuccess(true);
     } catch (err) {
       const resp = err.response?.data;
@@ -27,6 +42,10 @@ export default function RegisterPage() {
         setServerError("Ce matricule est déjà enregistré.");
       } else if (resp?.email) {
         setServerError("Cet email est déjà utilisé.");
+      } else if (resp?.phone_number) {
+        setServerError("Numéro de téléphone invalide.");
+      } else if (resp?.classe || resp?.specialite) {
+        setServerError("Classe et spécialité sont requises.");
       } else {
         setServerError("Une erreur est survenue lors de la création du compte.");
       }
@@ -104,6 +123,65 @@ export default function RegisterPage() {
                 <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.last_name.message}</p>
               )}
             </div>
+          </div>
+                    <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
+              Numéro de téléphone
+            </label>
+            <input
+              type="tel"
+              {...register("phone_number", {
+                required: "Numéro de téléphone requis",
+                pattern: { value: /^[0-9+\s-]{8}$/, message: "Numéro invalide" },
+              })}
+              className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink placeholder:text-gray-400 transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+              placeholder="Ex: 20123456"
+            />
+            {errors.phone_number && (
+              <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.phone_number.message}</p>
+            )}
+          </div>
+                    <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
+                Classe
+              </label>
+              <input
+                type="text"
+                {...register("classe", { required: "Classe requise" })}
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink placeholder:text-gray-400 transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+                placeholder="Ex: 3A24"
+              />
+              {errors.classe && (
+                <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.classe.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
+                Spécialité
+              </label>
+              <input
+                type="text"
+                {...register("specialite", { required: "Spécialité requise" })}
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink placeholder:text-gray-400 transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+                placeholder="Ex: TWIN"
+              />
+              {errors.specialite && (
+                <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.specialite.message}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">
+              Photo de profil <span className="normal-case font-medium text-gray-400">(optionnel)</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              {...register("photo")}
+              className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-2.5 text-sm font-medium text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:font-bold file:uppercase file:text-white hover:file:bg-crimson file:transition-colors"
+            />
           </div>
 
           <div>

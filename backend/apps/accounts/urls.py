@@ -3,6 +3,7 @@ from .views import (
     RegisterView,
     AdminUserListView,
     AdminUserDetailView,
+    AdminStudentListView,
     LoginView,
     RefreshView,
     LogoutView,
@@ -11,12 +12,15 @@ from .views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     ValidateStudentIdsView,
+    ChangePasswordView,
+    ReclamationCreateView,
 )
 
 urlpatterns = [
     # Admin User Management
     path("admin/users/", AdminUserListView.as_view(), name="admin-user-list"),
     path("admin/users/<int:pk>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
+    path("admin/students/", AdminStudentListView.as_view(), name="admin-student-list"),
 
     # Public Auth & User Operations
     path("register/", RegisterView.as_view(), name="register"),
@@ -32,4 +36,6 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
     ),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
+    path("reclamations/", ReclamationCreateView.as_view(), name="reclamation-create"),
 ]

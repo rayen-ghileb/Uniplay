@@ -33,6 +33,11 @@ const LogoutIcon = ({ className = "h-5 w-5" }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
+const ReclamationIcon = ({ className = "h-5 w-5" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
+  </svg>
+);
 
 export default function AdminLayout({ children }) {
   const { logoutUser } = useAuth();
@@ -42,9 +47,11 @@ export default function AdminLayout({ children }) {
   const navLinks = [
     { path: "/admin", label: "Tableau de bord", icon: DashboardIcon },
     { path: "/admin/users", label: "Gestion des Utilisateurs", icon: UsersIcon },
+    { path: "/admin/students", label: "Gestion des Étudiants", icon: UsersIcon },
     { path: "/admin/terrains", label: "Gestion des terrains", icon: TerrainIcon },
     { path: "/admin/sports", label: "Gestion des sports", icon: TerrainIcon },
     { path: "/admin/reservations", label: "Réservations globales", icon: CalendarIcon },
+    { path: "/admin/reclamations", label: "Gestion des réclamations", icon: ReclamationIcon },
   ];
 
   return (
