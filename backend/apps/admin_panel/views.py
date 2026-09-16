@@ -11,12 +11,90 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .permissions import IsAdminUser
-from .serializers import AdminSportSerializer, AdminTerrainSerializer, AdminReservationSerializer, AdminReclamationListSerializer, AdminReclamationDetailSerializer 
+from .serializers import (
+    AdminSportSerializer, AdminTerrainSerializer, AdminReservationSerializer,
+    AdminReclamationListSerializer, AdminReclamationDetailSerializer,
+)
 from apps.sports.models import Sport, Terrain
-from apps.accounts.models import Reclamation
 from apps.reservations.models import TimeSlot, Reservation
+from apps.accounts.models import Reclamation
 
 User = get_user_model()
+
+
+def _generate_slots_for_terrain(terrain, target):
+    """
+    Bulk-creates TimeSlot rows for a terrain for the given month target ('current' or 'next'),
+    based on the terrain's opening_hours and slot_duration. Skips any (date, start_time) that
+    already exists for that terrain. Returns the number of slots created.
+    Shared by manual generation, auto-generation on create, and regeneration on update.
+    """
+    today = date.today()
+
+    if target == 'current':
+        start_date = today
+        year, month = today.year, today.month
+    elif target == 'next':
+        if today.month == 12:
+            month = 1
+            year = today.year + 1
+        else:
+            month = today.month + 1
+            year = today.year
+        start_date = date(year, month, 1)
+    else:
+        raise ValueError("Invalid target")
+
+    last_day = calendar.monthrange(year, month)[1]
+    end_date = date(year, month, last_day)
+
+    days_to_generate = (end_date - start_date).days + 1
+    if days_to_generate <= 0:
+        return 0
+
+    slot_duration = terrain.slot_duration or 60
+    slots_created = 0
+
+    opening_hours = terrain.opening_hours if isinstance(terrain.opening_hours, dict) else {}
+    start_time_str = opening_hours.get('start', '08:00')
+    end_time_str = opening_hours.get('end', '22:00')
+
+    op_time = datetime.strptime(start_time_str, '%H:%M').time()
+    cl_time = datetime.strptime(end_time_str, '%H:%M').time()
+
+    for i in range(days_to_generate):
+        current_date = start_date + timedelta(days=i)
+        current_dt = datetime.combine(current_date, op_time)
+        closing_dt = datetime.combine(current_date, cl_time)
+
+        slots_to_bulk_create = []
+
+        existing_slots = set(
+            TimeSlot.objects.filter(
+                terrain=terrain, date=current_date
+            ).values_list('start_time', flat=True)
+        )
+
+        while current_dt + timedelta(minutes=slot_duration) <= closing_dt:
+            end_dt = current_dt + timedelta(minutes=slot_duration)
+
+            if current_dt.time() not in existing_slots:
+                slots_to_bulk_create.append(
+                    TimeSlot(
+                        terrain=terrain,
+                        date=current_date,
+                        start_time=current_dt.time(),
+                        end_time=end_dt.time(),
+                        is_available=True
+                    )
+                )
+            current_dt = end_dt
+
+        if slots_to_bulk_create:
+            TimeSlot.objects.bulk_create(slots_to_bulk_create)
+            slots_created += len(slots_to_bulk_create)
+
+    return slots_created
 
 
 class DashboardStatsView(APIView):
@@ -24,7 +102,7 @@ class DashboardStatsView(APIView):
 
     def get(self, request):
         total_students = User.objects.filter(is_admin=False).count()
-        
+
         res_stats = Reservation.objects.aggregate(
             total=Count('id'),
             confirmed=Count('id', filter=Q(status='confirmed')),
@@ -57,6 +135,26 @@ class AdminTerrainViewSet(viewsets.ModelViewSet):
     queryset = Terrain.objects.exclude(status='inactive')
     serializer_class = AdminTerrainSerializer
 
+    def perform_create(self, serializer):
+        """Auto-generates this month's and next month's slots as soon as a terrain is created."""
+        terrain = serializer.save()
+        _generate_slots_for_terrain(terrain, 'current')
+        _generate_slots_for_terrain(terrain, 'next')
+
+    def perform_update(self, serializer):
+        """
+        If opening hours or slot duration change, rebuild future slots to match.
+        Only future slots with NO reservation history (confirmed or cancelled) are touched,
+        since Reservation.timeslot is on_delete=PROTECT and would block deletion anyway.
+        """
+        terrain = serializer.save()
+        today = date.today()
+        TimeSlot.objects.filter(
+            terrain=terrain, date__gte=today, reservations__isnull=True
+        ).delete()
+        _generate_slots_for_terrain(terrain, 'current')
+        _generate_slots_for_terrain(terrain, 'next')
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.status = 'inactive'
@@ -66,92 +164,115 @@ class AdminTerrainViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def generate_slots(self, request, pk=None):
         terrain = self.get_object()
-        target = request.data.get('target', 'current') 
-        
-        today = date.today()
-        
-        if target == 'current':
-            start_date = today 
-            year, month = today.year, today.month
-        elif target == 'next':
-            if today.month == 12:
-                month = 1
-                year = today.year + 1
-            else:
-                month = today.month + 1
-                year = today.year
-            start_date = date(year, month, 1) 
-        else:
+        target = request.data.get('target', 'current')
+
+        try:
+            slots_created = _generate_slots_for_terrain(terrain, target)
+        except ValueError:
             return Response({"error": "Cible invalide."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+        return Response(
+            {"message": f"{slots_created} créneaux générés avec succès pour {terrain.name}."},
+            status=status.HTTP_200_OK
+        )
+
+
+class AdminTerrainPlanningView(APIView):
+    """
+    Returns a month's planning grid for one terrain: row = time slot (derived from the
+    terrain's opening hours and slot_duration), columns = each day of the month, cell =
+    the confirmed reservation id booking that slot, or null if free.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        terrain_id = request.query_params.get('terrain')
+        year_param = request.query_params.get('year')
+        month_param = request.query_params.get('month')
+
+        if not (terrain_id and year_param and month_param):
+            return Response(
+                {"error": "Paramètres terrain, year et month requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            terrain = Terrain.objects.get(pk=terrain_id)
+            year = int(year_param)
+            month = int(month_param)
+        except (Terrain.DoesNotExist, ValueError):
+            return Response({"error": "Paramètres invalides."}, status=status.HTTP_400_BAD_REQUEST)
+
         last_day = calendar.monthrange(year, month)[1]
+        start_date = date(year, month, 1)
         end_date = date(year, month, last_day)
-        
-        days_to_generate = (end_date - start_date).days + 1
-        if days_to_generate <= 0:
-            return Response({"message": "Aucun jour à générer."}, status=status.HTTP_200_OK)
-            
-        slot_duration = terrain.slot_duration or 60
-        slots_created = 0
-        
+
         opening_hours = terrain.opening_hours if isinstance(terrain.opening_hours, dict) else {}
         start_time_str = opening_hours.get('start', '08:00')
         end_time_str = opening_hours.get('end', '22:00')
-        
+        slot_duration = terrain.slot_duration or 60
+
         op_time = datetime.strptime(start_time_str, '%H:%M').time()
         cl_time = datetime.strptime(end_time_str, '%H:%M').time()
-        
-        for i in range(days_to_generate):
-            current_date = start_date + timedelta(days=i)
-            current_dt = datetime.combine(current_date, op_time)
-            closing_dt = datetime.combine(current_date, cl_time)
-            
-            slots_to_bulk_create = []
-            
-            existing_slots = set(
-                TimeSlot.objects.filter(
-                    terrain=terrain, date=current_date
-                ).values_list('start_time', flat=True)
+
+        # Row labels are derived once from the terrain's current opening hours.
+        rows_labels = []
+        cursor = datetime.combine(start_date, op_time)
+        closing_ref = datetime.combine(start_date, cl_time)
+        while cursor + timedelta(minutes=slot_duration) <= closing_ref:
+            end_dt = cursor + timedelta(minutes=slot_duration)
+            rows_labels.append((cursor.time().strftime('%H:%M'), end_dt.time().strftime('%H:%M')))
+            cursor = end_dt
+
+        slots = TimeSlot.objects.filter(
+            terrain=terrain, date__gte=start_date, date__lte=end_date
+        ).prefetch_related('reservations')
+
+        booked = {}
+        for slot in slots:
+            confirmed = next(
+                (r for r in slot.reservations.all() if r.status == Reservation.Status.CONFIRMED),
+                None,
             )
-            
-            while current_dt + timedelta(minutes=slot_duration) <= closing_dt:
-                end_dt = current_dt + timedelta(minutes=slot_duration)
-                
-                if current_dt.time() not in existing_slots:
-                    slots_to_bulk_create.append(
-                        TimeSlot(
-                            terrain=terrain,
-                            date=current_date,
-                            start_time=current_dt.time(),
-                            end_time=end_dt.time(),
-                            is_available=True
-                        )
-                    )
-                current_dt = end_dt
-                
-            if slots_to_bulk_create:
-                TimeSlot.objects.bulk_create(slots_to_bulk_create)
-                slots_created += len(slots_to_bulk_create)
-                
-        return Response(
-            {"message": f"{slots_created} créneaux générés avec succès pour {terrain.name}."}, 
-            status=status.HTTP_200_OK
-        )
+            if confirmed:
+                booked[(slot.date.isoformat(), slot.start_time.strftime('%H:%M'))] = confirmed.id
+
+        days = [
+            (start_date + timedelta(days=i)).isoformat()
+            for i in range((end_date - start_date).days + 1)
+        ]
+
+        rows = []
+        for start_label, end_label in rows_labels:
+            rows.append({
+                "start": start_label,
+                "end": end_label,
+                "cells": [
+                    {"date": day, "reservation_id": booked.get((day, start_label))}
+                    for day in days
+                ],
+            })
+
+        return Response({
+            "terrain": {"id": terrain.id, "name": terrain.name, "slot_duration": slot_duration},
+            "days": days,
+            "rows": rows,
+        })
 
 
 class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = AdminReservationSerializer
-    
+
     def get_queryset(self):
         qs = Reservation.objects.select_related(
             'terrain__sport', 'timeslot', 'organizer'
         ).prefetch_related('participants').all().order_by('-created_at')
-        
+
         search = self.request.query_params.get('search', None)
         if search:
             qs = qs.filter(
-                Q(organizer__username__icontains=search) | 
+                Q(organizer__username__icontains=search) |
                 Q(terrain__name__icontains=search) |
                 Q(organizer__first_name__icontains=search) |
                 Q(organizer__last_name__icontains=search)
@@ -163,7 +284,7 @@ class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
         reservation = self.get_object()
         if reservation.status == Reservation.Status.CANCELLED:
             return Response({"error": "Déjà annulée."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         reservation.status = Reservation.Status.CANCELLED
         reservation.save()
         return Response({"message": "Réservation annulée avec succès."})
@@ -172,16 +293,16 @@ class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
     def export_csv(self, request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="reservations_uniplay.csv"'
-        
+
         writer = csv.writer(response)
         writer.writerow([
-            'ID', 'Matricule', 'Organisateur', 'Participants', 
-            'Sport', 'Terrain', 'Date', 'Heure Debut', 'Heure Fin', 
+            'ID', 'Matricule', 'Organisateur', 'Participants',
+            'Sport', 'Terrain', 'Date', 'Heure Debut', 'Heure Fin',
             'Statut', 'Date Reservation'
         ])
-        
+
         now = timezone.now()
-        
+
         for res in self.get_queryset():
             if res.status == 'cancelled':
                 status_display = 'Annulé'
@@ -189,7 +310,7 @@ class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
                 slot_end = datetime.combine(res.timeslot.date, res.timeslot.end_time)
                 if timezone.is_naive(slot_end):
                     slot_end = timezone.make_aware(slot_end)
-                
+
                 if slot_end < now:
                     status_display = 'Terminé'
                 else:
@@ -209,8 +330,9 @@ class AdminReservationViewSet(viewsets.ReadOnlyModelViewSet):
                 status_display,
                 res.created_at.strftime('%Y-%m-%d %H:%M')
             ])
-            
+
         return response
+
 
 class AdminReclamationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminUser]

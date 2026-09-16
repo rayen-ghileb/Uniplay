@@ -34,3 +34,8 @@ export const exportReservationsCSV = () => api.get("/admin/reservations/export_c
 // Reclamations
 export const getAdminReclamations = () => api.get("/admin/reclamations/");
 export const getAdminReclamationDetail = (id) => api.get(`/admin/reclamations/${id}/`);
+
+// Planning
+export const getAdminPlanning = (terrainId, year, month) =>
+  api.get("/admin/planning/", { params: { terrain: terrainId, year, month } });
+export const getAdminReservationDetail = (id) => api.get(`/admin/reservations/${id}/`);

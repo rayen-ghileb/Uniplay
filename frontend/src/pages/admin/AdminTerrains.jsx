@@ -108,7 +108,7 @@ export default function AdminTerrains() {
                 <th className="p-4">Sport</th>
                 <th className="p-4">Statut</th>
                 <th className="p-4">Capacité</th>
-                <th className="p-4">Créneaux (Génération)</th>
+                
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -120,22 +120,7 @@ export default function AdminTerrains() {
                   <td className="p-4">{getStatusBadge(terrain.status)}</td>
                   <td className="p-4 text-steel">{terrain.capacity} joueurs</td>
                   
-                  <td className="p-4 space-x-2">
-                    <button 
-                      onClick={() => handleGenerateSlots(terrain.id, 'current')}
-                      disabled={generatingId === terrain.id}
-                      className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-100 disabled:opacity-50 transition-all"
-                    >
-                      {generatingId === terrain.id ? "..." : "+ Mois Actuel"}
-                    </button>
-                    <button 
-                      onClick={() => handleGenerateSlots(terrain.id, 'next')}
-                      disabled={generatingId === terrain.id}
-                      className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-[10px] font-bold uppercase tracking-wider hover:bg-purple-100 disabled:opacity-50 transition-all"
-                    >
-                      {generatingId === terrain.id ? "..." : "+ Mois Suivant"}
-                    </button>
-                  </td>
+
 
                   <td className="p-4 text-right space-x-3">
                     <button 

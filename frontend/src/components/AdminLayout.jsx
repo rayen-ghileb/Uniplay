@@ -50,6 +50,7 @@ export default function AdminLayout({ children }) {
     { path: "/admin/students", label: "Gestion des Étudiants", icon: UsersIcon },
     { path: "/admin/terrains", label: "Gestion des terrains", icon: TerrainIcon },
     { path: "/admin/sports", label: "Gestion des sports", icon: TerrainIcon },
+    { path: "/admin/planning", label: "Gestion de planning", icon: CalendarIcon },
     { path: "/admin/reservations", label: "Réservations globales", icon: CalendarIcon },
     { path: "/admin/reclamations", label: "Gestion des réclamations", icon: ReclamationIcon },
   ];

@@ -14,6 +14,8 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
     capacity: 4,
     slot_duration: 60,
     status: "available",
+    opening_time: "08:00",
+    closing_time: "22:00",
     photo: null,
   });
 
@@ -32,6 +34,8 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
           capacity: terrainToEdit.capacity || 4,
           slot_duration: terrainToEdit.slot_duration || 60,
           status: terrainToEdit.status || "available",
+          opening_time: terrainToEdit.opening_hours?.start || "08:00",
+          closing_time: terrainToEdit.opening_hours?.end || "22:00",
           photo: null,
         });
       } else {
@@ -41,6 +45,8 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
           capacity: 4,
           slot_duration: 60,
           status: "available",
+          opening_time: "08:00",
+          closing_time: "22:00",
           photo: null,
         });
       }
@@ -68,6 +74,7 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
     data.append("capacity", formData.capacity);
     data.append("slot_duration", formData.slot_duration);
     data.append("status", formData.status);
+    data.append("opening_hours", JSON.stringify({ start: formData.opening_time, end: formData.closing_time }));
 
     if (formData.photo) {
       data.append("photo", formData.photo);
@@ -189,6 +196,34 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
                 step="15"
                 name="slot_duration"
                 value={formData.slot_duration}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+              />
+            </div>
+          </div>
+                    <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">
+                Heure d'ouverture
+              </label>
+              <input
+                required
+                type="time"
+                name="opening_time"
+                value={formData.opening_time}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">
+                Heure de fermeture
+              </label>
+              <input
+                required
+                type="time"
+                name="closing_time"
+                value={formData.closing_time}
                 onChange={handleChange}
                 className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
               />

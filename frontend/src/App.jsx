@@ -15,6 +15,7 @@ import EditProfilePage from "./pages/parametres/EditProfilePage.jsx";
 import ChangePasswordPage from "./pages/parametres/ChangePasswordPage.jsx";
 import ReclamationsPage from "./pages/parametres/ReclamationsPage.jsx";
 import AdminReclamations from "./pages/admin/AdminReclamations.jsx";
+import AdminPlanning from "./pages/admin/AdminPlanning.jsx";
 
 // Admin Imports
 import AdminLayout from "./components/AdminLayout.jsx";
@@ -73,6 +74,7 @@ function App() {
       <Route path="/admin/terrains" element={<AdminAppLayout><AdminTerrains /></AdminAppLayout>} />
       <Route path="/admin/reservations" element={<AdminAppLayout><AdminReservations /></AdminAppLayout>} />
       <Route path="/admin/reclamations" element={<AdminAppLayout><AdminReclamations /></AdminAppLayout>} />
+      <Route path="/admin/planning" element={<AdminAppLayout><AdminPlanning /></AdminAppLayout>} />
     </Routes>
   );
 }

@@ -220,39 +220,60 @@ export default function BookingModal({ terrain, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-6 scrollbar-hide">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-3 backdrop-blur-md sm:p-6">
+      <div className="booking-modal relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-4xl bg-white shadow-2xl">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-          <div>
-            <h2 className="font-display text-2xl uppercase text-ink">
-              Réserver {terrain.name}
-            </h2>
-            <p className="text-xs text-steel font-medium">
-              Capacité maximale : {terrain.capacity} joueurs
-            </p>
+        <div className="relative flex-none overflow-hidden bg-ink px-6 py-6 text-white sm:px-8">
+          <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full border-24 border-crimson/30" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
+                <span className="h-2 w-2 rounded-full bg-crimson" />
+                Nouvelle réservation
+              </div>
+              <h2 className="font-display text-3xl uppercase tracking-tight sm:text-4xl">
+                {terrain.name}
+              </h2>
+              <p className="mt-2 text-xs font-medium text-white/65">
+                Choisissez un créneau et invitez vos coéquipiers.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Fermer"
+              className="relative flex h-10 w-10 flex-none items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-steel hover:bg-gray-200 hover:text-ink transition-colors"
-          >
-            ✕
-          </button>
+          <div className="relative mt-5 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/80">
+            <span className="rounded-full bg-white/10 px-3 py-1.5">Capacité : {terrain.capacity} joueurs</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5">7 jours disponibles</span>
+          </div>
         </div>
 
-        {errorMsg && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">
+        <div className="booking-modal-content min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-8">
+          {errorMsg && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-600">
             ⚠️ {errorMsg}
           </div>
-        )}
+          )}
 
         {/* 1. Date Selector Quick-Bar */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-ink mb-2">
-            1. Sélectionner une date
-          </label>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="rounded-2xl border border-gray-200 bg-fog/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink">
+                1. Sélectionner une date
+              </label>
+              <p className="mt-1 text-xs font-medium text-steel">Les créneaux sont affichés sur les 7 prochains jours.</p>
+            </div>
+            <span className="hidden rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-steel shadow-sm sm:block">
+              Étape 1 / 3
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
             {days.map((dateStr) => {
               const dateObj = new Date(dateStr + "T00:00:00");
               const isSelected = selectedDate === dateStr;
@@ -267,14 +288,16 @@ export default function BookingModal({ terrain, onClose }) {
                     setSelectedDate(dateStr);
                     setSelectedSlot(null);
                   }}
-                  className={`flex min-w-[60px] flex-col items-center rounded-xl py-2 px-2 transition-all ${
+                  className={`group flex min-h-19 flex-col items-center justify-center rounded-xl border px-2 py-2 transition-all ${
                     isSelected
-                      ? "bg-ink text-white shadow-md"
-                      : "border border-gray-200 bg-gray-50 text-steel hover:border-ink"
+                      ? "border-crimson bg-crimson text-white shadow-lg shadow-crimson/20"
+                      : "border-gray-200 bg-white text-steel hover:-translate-y-0.5 hover:border-crimson/50 hover:text-ink hover:shadow-md"
                   }`}
                 >
-                  <span className="text-[10px] font-bold uppercase">{dayName}</span>
-                  <span className="text-base font-extrabold">{dayNum}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? "text-white/70" : "text-gray-400"}`}>
+                    {dayName}
+                  </span>
+                  <span className="mt-1 text-2xl font-extrabold">{dayNum}</span>
                 </button>
               );
             })}
@@ -282,24 +305,27 @@ export default function BookingModal({ terrain, onClose }) {
         </div>
 
         {/* 2. React Big Calendar Display */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-ink">
-              2. Choisissez un créneau sur le calendrier
-            </label>
-            {selectedSlot && (
-              <span className="text-xs font-bold text-crimson">
-                Sélectionné: {selectedSlot.start_time} - {selectedSlot.end_time}
-              </span>
-            )}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink">
+                2. Choisissez un créneau
+              </label>
+              <p className="mt-1 text-xs font-medium text-steel">Les créneaux verts sont disponibles.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-steel">
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Libre</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-400" />Occupé</span>
+              {selectedSlot && <span className="rounded-full bg-crimson/10 px-2.5 py-1 text-crimson">{selectedSlot.start_time} - {selectedSlot.end_time}</span>}
+            </div>
           </div>
 
           {loadingSlots ? (
-            <div className="py-12 text-center text-xs text-steel">
+            <div className="flex h-90 items-center justify-center rounded-xl bg-fog/50 text-xs font-semibold text-steel">
               Chargement des créneaux...
             </div>
           ) : (
-            <div className="h-[360px] w-full rounded-2xl border border-gray-200 p-2 bg-white overflow-hidden">
+            <div className="booking-calendar h-97.5 w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
               <Calendar
                 localizer={localizer}
                 events={calendarEvents}
@@ -316,15 +342,15 @@ export default function BookingModal({ terrain, onClose }) {
                 step={30}
                 timeslots={2}
                 eventPropGetter={(event) => {
-                  let backgroundColor = "#10b981"; // Free slot (Emerald)
-                  if (!event.isAvailable) backgroundColor = "#9ca3af"; // Occupied (Gray)
-                  if (event.isSelected) backgroundColor = "#e11d48"; // Selected (Crimson)
+                  let backgroundColor = "#10b981";
+                  if (!event.isAvailable) backgroundColor = "#9ca3af";
+                  if (event.isSelected) backgroundColor = "#d81e2c";
 
                   return {
                     style: {
                       backgroundColor,
                       color: "white",
-                      borderRadius: "8px",
+                      borderRadius: "7px",
                       border: "none",
                       fontSize: "11px",
                       fontWeight: "bold",
@@ -344,10 +370,18 @@ export default function BookingModal({ terrain, onClose }) {
         </div>
 
         {/* 3. Participants Dropdowns */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-ink mb-2">
-            3. Inviter des coéquipiers (Optionnel)
-          </label>
+        <div className="rounded-2xl border border-gray-200 bg-fog/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink">
+                3. Inviter des coéquipiers
+              </label>
+              <p className="mt-1 text-xs font-medium text-steel">Cette étape est optionnelle.</p>
+            </div>
+            <span className="hidden rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-steel shadow-sm sm:block">
+              {participantIds.filter(Boolean).length} / {Math.max((terrain.capacity || 4) - 1, 1)} invités
+            </span>
+          </div>
           <div className="space-y-2">
             {participantIds.map((selectedUsername, idx) => (
               <ParticipantSearchField
@@ -363,7 +397,7 @@ export default function BookingModal({ terrain, onClose }) {
               <button
                 type="button"
                 onClick={addParticipantField}
-                className="text-xs font-bold text-crimson hover:underline pt-1"
+                className="mt-2 inline-flex items-center rounded-lg px-1 text-xs font-bold text-crimson transition-colors hover:text-crimsonDark"
               >
                 + Ajouter un joueur
               </button>
@@ -372,21 +406,27 @@ export default function BookingModal({ terrain, onClose }) {
         </div>
 
         {/* Submit Action */}
-        <div className="border-t border-gray-100 pt-4">
+        <div className="flex flex-col gap-4 border-t border-gray-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Résumé</div>
+            <div className="mt-1 text-sm font-bold text-ink">
+              {selectedSlot ? `${selectedSlot.start_time} - ${selectedSlot.end_time}` : "Aucun créneau sélectionné"}
+            </div>
+          </div>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!selectedSlot || bookMutation.isLoading}
-            className={`w-full rounded-xl py-3 text-xs font-bold uppercase tracking-wider text-white transition-all ${
+            className={`w-full rounded-xl px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-white transition-all sm:w-auto ${
               selectedSlot && !bookMutation.isLoading
-                ? "bg-crimson hover:bg-red-700 shadow-md"
-                : "bg-gray-300 cursor-not-allowed"
+                ? "bg-crimson shadow-lg shadow-crimson/20 hover:-translate-y-0.5 hover:bg-crimsonDark"
+                : "cursor-not-allowed bg-gray-300"
             }`}
           >
             {bookMutation.isLoading ? "Confirmation..." : "Valider la réservation"}
           </button>
         </div>
-
+        </div>
       </div>
     </div>
   );
