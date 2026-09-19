@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api.js";
+import ConfirmModal from "../components/ConfirmModal.jsx";
+import Toast from "../components/Toast.jsx";
 
 const InfoIcon = ({ className = "h-5 w-5" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -21,12 +23,6 @@ const ShieldIcon = ({ className = "h-5 w-5" }) => (
   </svg>
 );
 
-const AlertIcon = ({ className = "h-5 w-5" }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-  </svg>
-);
-
 const getSportTag = (sportName) => {
   const name = sportName.toLowerCase();
   if (name.includes("padel")) return "GAZON SYNTHÉTIQUE";
@@ -43,6 +39,7 @@ export default function HomePage({ user: propUser }) {
   
   const [isHighlighted, setIsHighlighted] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [reservationToCancel, setReservationToCancel] = useState(null);
 
   const { data: fetchedUser } = useQuery({
     queryKey: ["me"],
@@ -137,28 +134,13 @@ export default function HomePage({ user: propUser }) {
             </div>
 
             <button
-              onClick={() => navigate("/reservations")}
+              onClick={() => navigate("/mes-jeux")}
               className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3.5 text-xs font-bold text-ink transition-transform hover:scale-105 shadow-md self-start sm:self-auto"
             >
-              <span>🕒</span> Mes réservations
+              <span>🎮</span> Mes jeux
             </button>
           </div>
         </div>
-
-        {errorMessage && (
-          <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 shadow-sm">
-            <div className="flex items-center gap-3">
-              <AlertIcon className="h-5 w-5 shrink-0 text-red-500" />
-              <span>{errorMessage}</span>
-            </div>
-            <button
-              onClick={() => setErrorMessage(null)}
-              className="ml-4 rounded-lg bg-red-100 px-2 py-1 text-red-600 hover:bg-red-200 transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         <div
           ref={sportsRef}
@@ -285,11 +267,7 @@ export default function HomePage({ user: propUser }) {
                     </div>
                     
                     <button
-                      onClick={() => {
-                        if (window.confirm("Voulez-vous vraiment annuler cette réservation ?")) {
-                          cancelMutation.mutate(res.id);
-                        }
-                      }}
+                      onClick={() => setReservationToCancel(res)}
                       disabled={cancelMutation.isPending}
                       className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold uppercase text-red-600 hover:bg-red-100 disabled:opacity-50 transition-colors self-start sm:self-auto"
                     >
@@ -356,6 +334,25 @@ export default function HomePage({ user: propUser }) {
         </div>
 
       </div>
+      <Toast
+        type="error"
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
+      <ConfirmModal
+        open={!!reservationToCancel}
+        title="Annuler la réservation ?"
+        message="Votre réservation et la place réservée seront supprimées."
+        detail="L'annulation est possible uniquement plus de 12 heures avant le début du créneau."
+        confirmLabel="Oui, annuler"
+        pending={cancelMutation.isPending}
+        onClose={() => setReservationToCancel(null)}
+        onConfirm={() => {
+          cancelMutation.mutate(reservationToCancel.id, {
+            onSettled: () => setReservationToCancel(null),
+          });
+        }}
+      />
     </div>
   );
 }

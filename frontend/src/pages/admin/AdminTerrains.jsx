@@ -5,6 +5,8 @@ import {
   generateTerrainSlots 
 } from "../../services/admin";
 import TerrainFormModal from "./TerrainFormModal";
+import ConfirmModal from "../../components/ConfirmModal.jsx";
+import Toast from "../../components/Toast.jsx";
 
 export default function AdminTerrains() {
   const [terrains, setTerrains] = useState([]);
@@ -12,6 +14,8 @@ export default function AdminTerrains() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTerrain, setEditingTerrain] = useState(null);
   const [generatingId, setGeneratingId] = useState(null);
+  const [terrainToDelete, setTerrainToDelete] = useState(null);
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
 
   const fetchTerrains = () => {
     setLoading(true);
@@ -40,15 +44,19 @@ export default function AdminTerrains() {
     setEditingTerrain(null);
   };
 
+  const handleTerrainSuccess = (message) => {
+    fetchTerrains();
+    setFeedback({ type: "success", message });
+  };
+
   const handleDelete = async (id) => {
-    if (window.confirm("Supprimer ce terrain ? Cette action modifiera son statut en inactif.")) {
-      try {
-        await deleteAdminTerrain(id);
-        fetchTerrains();
-      } catch (error) {
-        console.error("Erreur lors de la suppression:", error);
-        alert("Erreur lors de la suppression du terrain.");
-      }
+    try {
+      await deleteAdminTerrain(id);
+      setFeedback({ type: "success", message: "Terrain désactivé avec succès." });
+      fetchTerrains();
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error);
+      setFeedback({ type: "error", message: "Erreur lors de la désactivation du terrain." });
     }
   };
 
@@ -56,10 +64,10 @@ export default function AdminTerrains() {
     setGeneratingId(id);
     try {
       const res = await generateTerrainSlots(id, target);
-      alert(res.data.message || "Créneaux générés avec succès.");
+      setFeedback({ type: "success", message: res.data.message || "Créneaux générés avec succès." });
     } catch (error) {
       console.error("Erreur de génération:", error);
-      alert("Erreur lors de la génération des créneaux.");
+      setFeedback({ type: "error", message: "Erreur lors de la génération des créneaux." });
     } finally {
       setGeneratingId(null);
     }
@@ -93,7 +101,7 @@ export default function AdminTerrains() {
       <TerrainFormModal 
         isOpen={isModalOpen} 
         onClose={handleCloseModal} 
-        onSuccess={fetchTerrains} 
+        onSuccess={handleTerrainSuccess}
         terrainToEdit={editingTerrain}
       />
 
@@ -130,7 +138,7 @@ export default function AdminTerrains() {
                       Éditer
                     </button>
                     <button 
-                      onClick={() => handleDelete(terrain.id)} 
+                      onClick={() => setTerrainToDelete(terrain)} 
                       className="text-red-600 text-xs font-bold uppercase hover:underline"
                     >
                       Supprimer
@@ -147,6 +155,23 @@ export default function AdminTerrains() {
           </table>
         </div>
       )}
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
+      <ConfirmModal
+        open={!!terrainToDelete}
+        title="Désactiver ce terrain ?"
+        message={`Le terrain ${terrainToDelete?.name || "sélectionné"} ne sera plus proposé à la réservation.`}
+        detail="Son statut passera à inactif. Les réservations existantes ne seront pas supprimées."
+        confirmLabel="Oui, désactiver"
+        onClose={() => setTerrainToDelete(null)}
+        onConfirm={async () => {
+          await handleDelete(terrainToDelete.id);
+          setTerrainToDelete(null);
+        }}
+      />
     </div>
   );
 }

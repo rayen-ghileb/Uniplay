@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api.js";
+import Toast from "../components/Toast.jsx";
 
 const CameraIcon = ({ className = "h-4 w-4" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -23,6 +24,7 @@ function InfoField({ label, value }) {
 export default function ProfilePage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["me"],
@@ -42,7 +44,9 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["me"]);
+      setFeedback({ type: "success", message: "Photo de profil mise à jour avec succès." });
     },
+    onError: () => setFeedback({ type: "error", message: "Impossible de mettre à jour la photo de profil." }),
   });
 
   const handlePhotoChange = (e) => {
@@ -120,6 +124,11 @@ export default function ProfilePage() {
           <InfoField label="Spécialité" value={user?.specialite} />
         </div>
       </div>
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
     </div>
   );
 }

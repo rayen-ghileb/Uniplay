@@ -229,13 +229,20 @@ class AdminTerrainPlanningView(APIView):
         ).prefetch_related('reservations')
 
         booked = {}
+        now = timezone.now()
         for slot in slots:
             confirmed = next(
                 (r for r in slot.reservations.all() if r.status == Reservation.Status.CONFIRMED),
                 None,
             )
             if confirmed:
-                booked[(slot.date.isoformat(), slot.start_time.strftime('%H:%M'))] = confirmed.id
+                slot_end = datetime.combine(slot.date, slot.end_time)
+                if timezone.is_naive(slot_end):
+                    slot_end = timezone.make_aware(slot_end)
+                booked[(slot.date.isoformat(), slot.start_time.strftime('%H:%M'))] = {
+                    "id": confirmed.id,
+                    "status": "finished" if slot_end < now else "confirmed",
+                }
 
         days = [
             (start_date + timedelta(days=i)).isoformat()
@@ -248,7 +255,11 @@ class AdminTerrainPlanningView(APIView):
                 "start": start_label,
                 "end": end_label,
                 "cells": [
-                    {"date": day, "reservation_id": booked.get((day, start_label))}
+                    {
+                        "date": day,
+                        "reservation_id": booked.get((day, start_label), {}).get("id"),
+                        "status": booked.get((day, start_label), {}).get("status"),
+                    }
                     for day in days
                 ],
             })

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { getAdminReservations, cancelAdminReservation, exportReservationsCSV } from "../../services/admin";
+import ConfirmModal from "../../components/ConfirmModal.jsx";
+import Toast from "../../components/Toast.jsx";
 
 const DownloadIcon = ({ className = "h-4 w-4" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -18,6 +20,8 @@ export default function AdminReservations() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [reservationToCancel, setReservationToCancel] = useState(null);
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
 
   const fetchReservations = () => {
     setLoading(true);
@@ -35,13 +39,12 @@ export default function AdminReservations() {
   }, [searchTerm]);
 
   const handleCancel = async (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir annuler cette réservation (Override Admin) ?")) {
-      try {
-        await cancelAdminReservation(id);
-        fetchReservations();
-      } catch (error) {
-        alert(error.response?.data?.error || "Erreur lors de l'annulation.");
-      }
+    try {
+      await cancelAdminReservation(id);
+      setFeedback({ type: "success", message: "Réservation annulée." });
+      fetchReservations();
+    } catch (error) {
+      setFeedback({ type: "error", message: error.response?.data?.error || "Erreur lors de l'annulation." });
     }
   };
 
@@ -55,8 +58,10 @@ export default function AdminReservations() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
+      setFeedback({ type: "success", message: "La liste des réservations a été exportée avec succès." });
     } catch (error) {
-      alert("Erreur lors de l'exportation CSV.");
+      setFeedback({ type: "error", message: "Erreur lors de l'exportation CSV." });
     }
   };
 
@@ -182,7 +187,7 @@ export default function AdminReservations() {
                       <td className="p-4 text-right">
                         {displayStatus === "confirmed" && (
                           <button
-                            onClick={() => handleCancel(res.id)}
+                            onClick={() => setReservationToCancel(res)}
                             className="text-xs font-bold uppercase text-crimson hover:underline"
                           >
                             Forcer annulation
@@ -204,6 +209,23 @@ export default function AdminReservations() {
           </div>
         </div>
       )}
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
+      <ConfirmModal
+        open={!!reservationToCancel}
+        title="Forcer l'annulation ?"
+        message="Cette réservation sera annulée par l'administration, même si le délai habituel est dépassé."
+        detail="Les participants concernés ne pourront plus utiliser ce créneau."
+        confirmLabel="Oui, annuler"
+        onClose={() => setReservationToCancel(null)}
+        onConfirm={async () => {
+          await handleCancel(reservationToCancel.id);
+          setReservationToCancel(null);
+        }}
+      />
     </div>
   );
 }

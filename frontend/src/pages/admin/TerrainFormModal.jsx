@@ -4,10 +4,12 @@ import {
   createAdminTerrain,
   updateAdminTerrain,
 } from "../../services/admin";
+import Toast from "../../components/Toast.jsx";
 
 export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainToEdit = null }) {
   const [sports, setSports] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [formData, setFormData] = useState({
     name: "",
     sport: "",
@@ -86,7 +88,7 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
       } else {
         await createAdminTerrain(data);
       }
-      onSuccess();
+      onSuccess(isEditing ? "Terrain mis à jour avec succès." : "Terrain ajouté avec succès.");
       onClose();
     } catch (error) {
       const backendError = error.response?.data
@@ -94,7 +96,7 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
         : "Une erreur est survenue.";
 
       console.error("Backend validation error:", error.response?.data);
-      alert(`Erreur d'enregistrement: ${backendError}`);
+      setFeedback({ type: "error", message: `Erreur d'enregistrement : ${backendError}` });
     } finally {
       setLoading(false);
     }
@@ -261,6 +263,11 @@ export default function TerrainFormModal({ isOpen, onClose, onSuccess, terrainTo
           </div>
         </form>
       </div>
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
     </div>
   );
 }

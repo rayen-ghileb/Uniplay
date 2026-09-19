@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.sports.apps.SportsConfig",
     "apps.reservations.apps.ReservationsConfig",
+    "apps.games.apps.GamesConfig",
 ]
 
 MIDDLEWARE = [

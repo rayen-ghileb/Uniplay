@@ -16,6 +16,9 @@ import ChangePasswordPage from "./pages/parametres/ChangePasswordPage.jsx";
 import ReclamationsPage from "./pages/parametres/ReclamationsPage.jsx";
 import AdminReclamations from "./pages/admin/AdminReclamations.jsx";
 import AdminPlanning from "./pages/admin/AdminPlanning.jsx";
+import MyGamesPage from "./pages/MyGamesPage.jsx";
+import GamesListPage from "./pages/GamesListPage.jsx";
+import GameLobby from "./pages/GameLobby.jsx";
 
 // Admin Imports
 import AdminLayout from "./components/AdminLayout.jsx";
@@ -65,6 +68,9 @@ function App() {
       <Route path="/parametres/profil" element={<AppLayout><ParametresLayout><EditProfilePage /></ParametresLayout></AppLayout>} />
       <Route path="/parametres/mot-de-passe" element={<AppLayout><ParametresLayout><ChangePasswordPage /></ParametresLayout></AppLayout>} />
       <Route path="/parametres/reclamations" element={<AppLayout><ParametresLayout><ReclamationsPage /></ParametresLayout></AppLayout>} />
+      <Route path="/mes-jeux" element={<AppLayout><MyGamesPage /></AppLayout>} />
+      <Route path="/jeux" element={<AppLayout><GamesListPage /></AppLayout>} />
+      <Route path="/games/:gameId" element={<AppLayout><GameLobby /></AppLayout>} />
 
       {/* --- PHASE 4: ADMIN ROUTES --- */}
       <Route path="/admin" element={<AdminAppLayout><AdminDashboard /></AdminAppLayout>} />

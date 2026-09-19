@@ -16,6 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             "id", "username", "email", "phone_number", "classe", "specialite", "photo",
             "first_name", "last_name", "is_active", "is_admin", "date_joined",
+            "is_deactivated",
         ]
         read_only_fields = ["date_joined"]
 
@@ -54,6 +55,17 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        username = attrs.get("username")
+        user = User.objects.filter(username=username).first()
+        if user and not user.is_active:
+            if user.is_deactivated:
+                raise serializers.ValidationError({
+                    "detail": "Votre compte a été désactivé par un administrateur."
+                })
+            raise serializers.ValidationError({
+                "detail": "Votre compte est en attente d'approbation par un administrateur."
+            })
+
         data = super().validate(attrs)
         data["user"] = {
             "id": self.user.id,

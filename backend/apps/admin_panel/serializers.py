@@ -1,3 +1,6 @@
+from datetime import datetime
+
+from django.utils import timezone
 from rest_framework import serializers
 from apps.sports.models import Sport, Terrain
 from apps.reservations.models import Reservation
@@ -27,6 +30,7 @@ class AdminReservationSerializer(serializers.ModelSerializer):
     start_time = serializers.TimeField(source='timeslot.start_time', read_only=True)
     end_time = serializers.TimeField(source='timeslot.end_time', read_only=True)
     participants = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -39,6 +43,15 @@ class AdminReservationSerializer(serializers.ModelSerializer):
     def get_organizer_name(self, obj):
         full_name = f"{obj.organizer.first_name} {obj.organizer.last_name}".strip()
         return full_name if full_name else obj.organizer.username
+
+    def get_status(self, obj):
+        if obj.status == Reservation.Status.CANCELLED:
+            return obj.status
+
+        slot_end = datetime.combine(obj.timeslot.date, obj.timeslot.end_time)
+        if timezone.is_naive(slot_end):
+            slot_end = timezone.make_aware(slot_end)
+        return "finished" if slot_end < timezone.now() else obj.status
 
     def get_participants(self, obj):
         return [

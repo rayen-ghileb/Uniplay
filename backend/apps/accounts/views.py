@@ -4,6 +4,7 @@ from django.core.mail import send_mail
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.conf import settings
+from django.db.models.deletion import ProtectedError
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,7 +36,7 @@ class RegisterView(generics.CreateAPIView):
 class AdminUserListView(generics.ListAPIView):
     """Lists all users. Orders pending (inactive) accounts at the very top."""
     serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny] # In production, restrict to admin permissions
+    permission_classes = [IsAdmin]
 
     def get_queryset(self):
         # is_active=False comes first, then ordered by newest registrations
@@ -43,10 +44,41 @@ class AdminUserListView(generics.ListAPIView):
 
 
 class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Allows admins to approve (patch is_active=True) or reject (destroy) accounts."""
+    """Allows admins to approve, deactivate, reactivate, or reject accounts."""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny] # In production, restrict to admin permissions
+    permission_classes = [IsAdmin]
+
+    def update(self, request, *args, **kwargs):
+        user = self.get_object()
+        is_active = request.data.get("is_active")
+        data = request.data.copy()
+
+        if is_active is False and user.is_active:
+            data["is_deactivated"] = True
+        elif is_active is True:
+            data["is_deactivated"] = False
+
+        serializer = self.get_serializer(user, data=data, partial=kwargs.get("partial", False))
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        if user.is_active or user.is_deactivated:
+            return Response(
+                {"detail": "Un compte actif ou désactivé ne peut pas être supprimé."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            user.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Ce compte possède un historique et ne peut pas être supprimé."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class UserListView(generics.ListAPIView):

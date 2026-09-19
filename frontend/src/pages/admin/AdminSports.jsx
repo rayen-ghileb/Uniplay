@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../services/api.js";
+import ConfirmModal from "../../components/ConfirmModal.jsx";
+import Toast from "../../components/Toast.jsx";
 
 const PlusIcon = ({ className = "h-5 w-5" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -24,6 +26,8 @@ export default function AdminSports() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSport, setEditingSport] = useState(null);
+  const [sportToDelete, setSportToDelete] = useState(null);
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
   
   const [formData, setFormData] = useState({ name: "", description: "", is_active: true });
   const [selectedFile, setSelectedFile] = useState(null);
@@ -46,18 +50,28 @@ export default function AdminSports() {
     onSuccess: () => {
       queryClient.invalidateQueries(["admin-sports"]);
       queryClient.invalidateQueries(["sports"]);
+      setFeedback({
+        type: "success",
+        message: editingSport ? "Sport modifié avec succès." : "Sport ajouté avec succès.",
+      });
       closeModal();
     },
+    onError: () => setFeedback({ type: "error", message: "Impossible d'enregistrer le sport." }),
   });
 
   const toggleStatusMutation = useMutation({
     mutationFn: async (sport) => {
       return api.patch(`/sports/admin/${sport.id}/`, { is_active: !sport.is_active });
     },
-    onSuccess: () => {
+    onSuccess: (_data, sport) => {
       queryClient.invalidateQueries(["admin-sports"]);
       queryClient.invalidateQueries(["sports"]);
+      setFeedback({
+        type: "success",
+        message: sport.is_active ? "Sport désactivé avec succès." : "Sport activé avec succès.",
+      });
     },
+    onError: () => setFeedback({ type: "error", message: "Impossible de modifier le statut du sport." }),
   });
 
   const deleteMutation = useMutation({
@@ -67,10 +81,11 @@ export default function AdminSports() {
     onSuccess: () => {
       queryClient.invalidateQueries(["admin-sports"]);
       queryClient.invalidateQueries(["sports"]);
+      setFeedback({ type: "success", message: "Sport désactivé avec succès." });
     },
     onError: (error) => {
       const errorMessage = error.response?.data?.detail || "Une erreur est survenue lors de la suppression.";
-      alert(errorMessage);
+      setFeedback({ type: "error", message: errorMessage });
     }
   });
 
@@ -103,9 +118,7 @@ export default function AdminSports() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce sport ? Il sera désactivé et ses réservations annulées.")) {
-      deleteMutation.mutate(id);
-    }
+    setSportToDelete(sports.find((sport) => sport.id === id));
   };
 
   if (isLoading) return <div className="p-8 text-center text-steel font-medium">Chargement des sports...</div>;
@@ -179,7 +192,7 @@ export default function AdminSports() {
                     disabled={deleteMutation.isPending}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
                   >
-                    <TrashIcon /> Supprimer
+                    <TrashIcon /> Désactiver
                   </button>
                 </td>
               </tr>
@@ -258,6 +271,25 @@ export default function AdminSports() {
           </div>
         </div>
       )}
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
+      <ConfirmModal
+        open={!!sportToDelete}
+        title="Supprimer ce sport ?"
+        message={`Le sport ${sportToDelete?.name || "sélectionné"} sera désactivé et ses réservations annulées.`}
+        detail="Cette action peut affecter les terrains et les créneaux associés."
+        confirmLabel="Oui, supprimer"
+        pending={deleteMutation.isPending}
+        onClose={() => setSportToDelete(null)}
+        onConfirm={() => {
+          deleteMutation.mutate(sportToDelete.id, {
+            onSettled: () => setSportToDelete(null),
+          });
+        }}
+      />
     </div>
   );
 }

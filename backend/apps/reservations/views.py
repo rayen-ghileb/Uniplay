@@ -45,14 +45,14 @@ class ReservationDetailDeleteView(generics.RetrieveDestroyAPIView):
         # Only organizer can cancel
         if reservation.organizer != request.user:
             return Response(
-                {"detail": "Only the organizer can cancel this reservation."},
+                {"detail": "Seul l'organisateur peut annuler cette réservation."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         if not reservation.can_cancel:
             return Response(
                 {
-                    "detail": "Cancellation is only allowed up to 12 hours before the reservation starts."
+                    "detail": "L'annulation est autorisée uniquement plus de 12 heures avant le début de la réservation."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -61,6 +61,6 @@ class ReservationDetailDeleteView(generics.RetrieveDestroyAPIView):
         reservation.save()
 
         return Response(
-            {"detail": "Reservation cancelled successfully."},
+            {"detail": "Réservation annulée avec succès."},
             status=status.HTTP_200_OK,
         )

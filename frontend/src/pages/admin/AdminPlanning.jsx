@@ -84,10 +84,16 @@ function ReservationModal({ id, onClose }) {
                     className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                       data.status === "confirmed"
                         ? "bg-emerald-50 text-emerald-700"
+                          : data.status === "finished"
+                          ? "bg-gray-100 text-steel"
                         : "bg-rose-50 text-rose-700"
                     }`}
                   >
-                    {data.status === "confirmed" ? "Confirmée" : "Annulée"}
+                      {data.status === "confirmed"
+                        ? "Confirmée"
+                        : data.status === "finished"
+                        ? "Terminé"
+                        : "Annulée"}
                   </span>
                 </div>
               </div>
