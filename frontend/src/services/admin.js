@@ -39,3 +39,9 @@ export const getAdminReclamationDetail = (id) => api.get(`/admin/reclamations/${
 export const getAdminPlanning = (terrainId, year, month) =>
   api.get("/admin/planning/", { params: { terrain: terrainId, year, month } });
 export const getAdminReservationDetail = (id) => api.get(`/admin/reservations/${id}/`);
+
+// Groups (post-game rosters for conduct review)
+export const getAdminGroups = () => api.get("/admin/groups/");
+export const getAdminGroupDetail = (id) => api.get(`/admin/groups/${id}/`);
+export const warnStudent = (studentId, gameId) =>
+  api.post(`/admin/students/${studentId}/warn/${gameId}/`);

@@ -175,6 +175,7 @@ export default function AdminLayout({ children }) {
     { path: "/admin", label: "Tableau de bord", icon: DashboardIcon },
     { path: "/admin/users", label: "Gestion des Utilisateurs", icon: UsersIcon },
     { path: "/admin/students", label: "Gestion des Étudiants", icon: UsersIcon },
+    { path: "/admin/groups", label: "Gestion de groupe", icon: UsersIcon },
     { path: "/admin/terrains", label: "Gestion des terrains", icon: TerrainIcon },
     { path: "/admin/planning", label: "Gestion de planning", icon: CalendarIcon },
     { path: "/admin/sports", label: "Gestion des sports", icon: TerrainIcon },

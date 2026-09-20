@@ -16,9 +16,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             "id", "username", "email", "phone_number", "classe", "specialite", "photo",
             "first_name", "last_name", "is_active", "is_admin", "date_joined",
-            "is_deactivated",
+            "is_deactivated", "is_suspended",
+            "show_reactivation_warning",
         ]
-        read_only_fields = ["date_joined"]
+        read_only_fields = ["date_joined", "show_reactivation_warning"]
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -57,6 +58,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         username = attrs.get("username")
         user = User.objects.filter(username=username).first()
+
+        # Suspension is independent of is_active — a suspended account can otherwise still
+        # be approved/active, so this check must come before the is_active branch below.
+        if user and user.is_suspended:
+            raise serializers.ValidationError({
+                "detail": (
+                    "Votre compte a été suspendu suite à un avertissement pour mauvais "
+                    "comportement. Veuillez contacter l'administration pour régulariser "
+                    "votre situation."
+                )
+            })
+
         if user and not user.is_active:
             if user.is_deactivated:
                 raise serializers.ValidationError({
@@ -67,6 +80,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             })
 
         data = super().validate(attrs)
+        reactivation_warning = None
+        if self.user.show_reactivation_warning:
+            reactivation_warning = (
+                "Votre compte a été réactivé. Merci de respecter le règlement et de ne pas "
+                "reproduire le comportement ayant entraîné votre suspension."
+            )
+            self.user.show_reactivation_warning = False
+            self.user.save(update_fields=["show_reactivation_warning"])
         data["user"] = {
             "id": self.user.id,
             "username": self.user.username,
@@ -76,6 +97,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "is_admin": getattr(self.user, "is_admin", False),
             "is_active": self.user.is_active,
         }
+        if reactivation_warning:
+            data["reactivation_warning"] = reactivation_warning
         return data
 
 

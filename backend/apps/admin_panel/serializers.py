@@ -5,6 +5,8 @@ from rest_framework import serializers
 from apps.sports.models import Sport, Terrain
 from apps.reservations.models import Reservation
 from apps.accounts.models import Reclamation
+from apps.accounts.models import Warning
+from apps.games.models import Game, GameParticipant
 
 
 class AdminSportSerializer(serializers.ModelSerializer):
@@ -100,3 +102,59 @@ class AdminReclamationDetailSerializer(serializers.ModelSerializer):
             url = obj.sender.photo.url
             return request.build_absolute_uri(url) if request else url
         return None
+
+class AdminGroupListSerializer(serializers.ModelSerializer):
+    terrain_name = serializers.CharField(source="reservation.terrain.name", read_only=True)
+    sport_name = serializers.CharField(source="reservation.terrain.sport.name", read_only=True)
+    date = serializers.DateField(source="reservation.timeslot.date", read_only=True)
+    start_time = serializers.TimeField(source="reservation.timeslot.start_time", read_only=True)
+    end_time = serializers.TimeField(source="reservation.timeslot.end_time", read_only=True)
+    owner_name = serializers.SerializerMethodField()
+    player_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Game
+        fields = [
+            "id", "is_public", "terrain_name", "sport_name",
+            "date", "start_time", "end_time", "owner_name", "player_count",
+        ]
+
+    def get_owner_name(self, obj):
+        organizer = obj.reservation.organizer
+        full_name = f"{organizer.first_name} {organizer.last_name}".strip()
+        return full_name if full_name else organizer.username
+
+    def get_player_count(self, obj):
+        return obj.game_participants.filter(status=GameParticipant.Status.JOINED).count()
+
+
+class AdminGroupMemberSerializer(serializers.Serializer):
+    student_id = serializers.CharField(source="student.username")
+    first_name = serializers.CharField(source="student.first_name")
+    last_name = serializers.CharField(source="student.last_name")
+    photo = serializers.SerializerMethodField()
+    warning_count = serializers.SerializerMethodField()
+    is_suspended = serializers.BooleanField(source="student.is_suspended")
+
+    def get_photo(self, obj):
+        request = self.context.get("request")
+        if obj.student.photo:
+            url = obj.student.photo.url
+            return request.build_absolute_uri(url) if request else url
+        return None
+
+    def get_warning_count(self, obj):
+        return Warning.objects.filter(recipient=obj.student).count()
+
+
+class AdminGroupDetailSerializer(AdminGroupListSerializer):
+    members = serializers.SerializerMethodField()
+
+    class Meta(AdminGroupListSerializer.Meta):
+        fields = AdminGroupListSerializer.Meta.fields + ["members"]
+
+    def get_members(self, obj):
+        qs = obj.game_participants.filter(
+            status=GameParticipant.Status.JOINED
+        ).select_related("student").order_by("student__first_name")
+        return AdminGroupMemberSerializer(qs, many=True, context=self.context).data

@@ -52,6 +52,7 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         user = self.get_object()
         is_active = request.data.get("is_active")
+        was_suspended = user.is_suspended
         data = request.data.copy()
 
         if is_active is False and user.is_active:
@@ -62,6 +63,11 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(user, data=data, partial=kwargs.get("partial", False))
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        is_suspended = request.data.get("is_suspended")
+        if was_suspended and is_suspended in (False, "false", "0"):
+            user.refresh_from_db()
+            user.show_reactivation_warning = True
+            user.save(update_fields=["show_reactivation_warning"])
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):

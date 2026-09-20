@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./router/ProtectedRoute.jsx";
 import { AdminRoute } from "./router/AdminRoute.jsx";
@@ -19,6 +20,7 @@ import AdminPlanning from "./pages/admin/AdminPlanning.jsx";
 import MyGamesPage from "./pages/MyGamesPage.jsx";
 import GamesListPage from "./pages/GamesListPage.jsx";
 import GameLobby from "./pages/GameLobby.jsx";
+import AdminGroups from "./pages/admin/AdminGroups.jsx";
 
 // Admin Imports
 import AdminLayout from "./components/AdminLayout.jsx";
@@ -28,14 +30,26 @@ import AdminReservations from "./pages/admin/AdminReservations.jsx";
 import AdminSports from "./pages/admin/AdminSports.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import AdminStudents from "./pages/admin/AdminStudents.jsx";  // add this
+import Toast from "./components/Toast.jsx";
 
 // Layout wrapper that renders Navbar and wraps protected content for students
 function AppLayout({ children }) {
+  const [loginWarning, setLoginWarning] = useState(() => sessionStorage.getItem("login_warning") || "");
+
+  useEffect(() => {
+    if (loginWarning) sessionStorage.removeItem("login_warning");
+  }, [loginWarning]);
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-fog">
         <Navbar />
         <main>{children}</main>
+        <Toast
+          type="error"
+          message={loginWarning}
+          onClose={() => setLoginWarning("")}
+        />
       </div>
     </ProtectedRoute>
   );
@@ -81,6 +95,7 @@ function App() {
       <Route path="/admin/reservations" element={<AdminAppLayout><AdminReservations /></AdminAppLayout>} />
       <Route path="/admin/reclamations" element={<AdminAppLayout><AdminReclamations /></AdminAppLayout>} />
       <Route path="/admin/planning" element={<AdminAppLayout><AdminPlanning /></AdminAppLayout>} />
+      <Route path="/admin/groups" element={<AdminAppLayout><AdminGroups /></AdminAppLayout>} />
     </Routes>
   );
 }

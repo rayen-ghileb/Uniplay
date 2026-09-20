@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from django.http import HttpResponse
 from django.db.models import Count, Q
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -18,6 +19,10 @@ from .serializers import (
 from apps.sports.models import Sport, Terrain
 from apps.reservations.models import TimeSlot, Reservation
 from apps.accounts.models import Reclamation
+from django.utils import timezone as dj_timezone
+from apps.games.models import Game, GameParticipant
+from apps.accounts.models import Warning
+from .serializers import AdminGroupListSerializer, AdminGroupDetailSerializer
 
 User = get_user_model()
 
@@ -356,3 +361,79 @@ class AdminReclamationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_serializer_context(self):
         return {'request': self.request}
+
+class AdminGroupViewSet(viewsets.ReadOnlyModelViewSet):
+    """One card per completed game — the roster that actually played together."""
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        now = dj_timezone.now()
+        qs = Game.objects.exclude(reservation__status='cancelled').select_related(
+            'reservation__terrain__sport', 'reservation__organizer', 'reservation__timeslot'
+        )
+        past_ids = []
+        for game in qs:
+            ts = game.reservation.timeslot
+            slot_end = datetime.combine(ts.date, ts.end_time)
+            if timezone.is_naive(slot_end):
+                slot_end = timezone.make_aware(slot_end)
+            if slot_end < now:
+                past_ids.append(game.id)
+        return qs.filter(id__in=past_ids).order_by('-reservation__timeslot__date')
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminGroupDetailSerializer
+        return AdminGroupListSerializer
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class AdminWarnStudentView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, student_id, game_id=None):
+        from apps.games.serializers import _notify
+        from apps.games.models import Notification
+
+        student = get_object_or_404(User, username=student_id, is_admin=False)
+        game = Game.objects.filter(pk=game_id).first() if game_id else None
+
+        existing_count = Warning.objects.filter(recipient=student).count()
+        new_count = existing_count + 1
+
+        if new_count == 1:
+            message = (
+                "Avertissement : votre comportement lors d'un jeu récent a été signalé par "
+                "l'administration. Merci de respecter les autres joueurs et le règlement du campus. "
+                "Une récidive entraînera la suspension de votre compte."
+            )
+        elif new_count == 2:
+            message = (
+                "Avertissement final : suite à un second signalement pour mauvais comportement, "
+                "votre compte a été suspendu. Veuillez contacter l'administration pour régulariser "
+                "votre situation."
+            )
+            student.is_suspended = True
+            student.save()
+        else:
+            message = (
+                "Suspension immédiate : votre compte avait déjà été suspendu après deux avertissements. "
+                "Un nouveau signalement entraîne une suspension immédiate. Veuillez contacter "
+                "l'administration pour régulariser votre situation."
+            )
+            student.is_suspended = True
+            student.save()
+
+        Warning.objects.create(recipient=student, issued_by=request.user, game=game, message=message)
+        _notify(student, request.user, Notification.Kind.WARNING, game)
+
+        return Response(
+            {
+                "detail": "Avertissement envoyé." if new_count == 1 else "Compte suspendu.",
+                "warning_count": new_count,
+                "is_suspended": student.is_suspended,
+            },
+            status=status.HTTP_201_CREATED,
+        )

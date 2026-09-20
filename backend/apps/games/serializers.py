@@ -258,6 +258,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "member_joined": f"{actor} a rejoint le jeu",
             "booking_created": f"{actor} a réservé un terrain",
             "booking_cancelled": f"{actor} a annulé une réservation",
+            "warning": "L'administration vous a envoyé un avertissement",
         }
         return f"{messages.get(obj.kind, 'Notification')} · {label}"
 

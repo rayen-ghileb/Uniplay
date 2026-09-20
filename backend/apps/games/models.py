@@ -55,6 +55,7 @@ class Notification(models.Model):
         MEMBER_JOINED = "member_joined", "Member joined the game"
         BOOKING_CREATED = "booking_created", "Booking created (admin)"       # add this
         BOOKING_CANCELLED = "booking_cancelled", "Booking cancelled (admin)" 
+        WARNING = "warning", "Conduct warning"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

@@ -23,6 +23,9 @@ export default function LoginPage() {
     try {
       const res = await login(data);
       const { user, access, refresh } = res.data;
+      if (res.data.reactivation_warning) {
+        sessionStorage.setItem("login_warning", res.data.reactivation_warning);
+      }
       loginUser(user, { access, refresh });
       navigate(user.is_admin ? "/admin" : "/");
     } catch (err) {

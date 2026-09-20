@@ -71,6 +71,17 @@ export default function AdminUsers() {
     onError: () => setFeedback({ type: "error", message: "Impossible de modifier le statut de l'utilisateur." }),
   });
 
+  const updateSuspensionMutation = useMutation({
+    mutationFn: async ({ id, is_suspended }) => {
+      return api.patch(`/auth/admin/users/${id}/`, { is_suspended });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["admin-users"]);
+      setFeedback({ type: "success", message: "Compte réactivé avec succès." });
+    },
+    onError: () => setFeedback({ type: "error", message: "Impossible de réactiver le compte." }),
+  });
+
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ id, is_admin }) => {
       return api.patch(`/auth/admin/users/${id}/`, { is_admin });
@@ -156,11 +167,13 @@ export default function AdminUsers() {
     if (filter === "pending") return !user.is_active && !user.is_deactivated;
     if (filter === "active") return user.is_active;
     if (filter === "deactivated") return user.is_deactivated;
+    if (filter === "suspended") return user.is_suspended;
     return true;
   });
 
   const pendingCount = users.filter((u) => !u.is_active && !u.is_deactivated).length;
   const deactivatedCount = users.filter((u) => u.is_deactivated).length;
+  const suspendedCount = users.filter((u) => u.is_suspended).length;
 
   if (isLoading) return <div className="p-8 text-center font-medium text-gray-500">Chargement des utilisateurs...</div>;
 
@@ -217,6 +230,19 @@ export default function AdminUsers() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setFilter("suspended")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              filter === "suspended" ? "bg-white text-ink shadow-sm" : "text-gray-500 hover:text-ink"
+            }`}
+          >
+            Suspendus
+            {suspendedCount > 0 && (
+              <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                {suspendedCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -243,7 +269,7 @@ export default function AdminUsers() {
                 <tr
                   key={user.id}
                   className={`transition-colors hover:bg-gray-50/50 ${
-                    !user.is_active ? "bg-amber-50/20" : ""
+                    !user.is_active || user.is_suspended ? "bg-amber-50/20" : ""
                   }`}
                 >
                   <td className="px-6 py-4 font-bold text-ink">
@@ -273,7 +299,9 @@ export default function AdminUsers() {
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                        user.is_deactivated
+                        user.is_suspended
+                          ? "bg-red-100 text-red-800"
+                          : user.is_deactivated
                           ? "bg-gray-100 text-gray-600"
                           : user.is_active
                           ? "bg-emerald-50 text-emerald-700"
@@ -282,10 +310,22 @@ export default function AdminUsers() {
                     >
                       <span
                         className={`h-1.5 w-1.5 rounded-full ${
-                          user.is_deactivated ? "bg-gray-500" : user.is_active ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                          user.is_suspended
+                            ? "bg-red-600"
+                            : user.is_deactivated
+                            ? "bg-gray-500"
+                            : user.is_active
+                            ? "bg-emerald-500"
+                            : "bg-amber-500 animate-pulse"
                         }`}
                       ></span>
-                      {user.is_deactivated ? "Désactivé" : user.is_active ? "Approuvé" : "En Attente"}
+                      {user.is_suspended
+                        ? "Suspendu"
+                        : user.is_deactivated
+                        ? "Désactivé"
+                        : user.is_active
+                        ? "Approuvé"
+                        : "En Attente"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
@@ -295,7 +335,17 @@ export default function AdminUsers() {
                     >
                       <EditIcon /> Modifier
                     </button>
-                    {!user.is_active && !user.is_deactivated ? (
+                    {user.is_suspended ? (
+                      <button
+                        onClick={() =>
+                          updateSuspensionMutation.mutate({ id: user.id, is_suspended: false })
+                        }
+                        disabled={updateSuspensionMutation.isPending}
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold uppercase text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                      >
+                        <CheckIcon /> Réactiver
+                      </button>
+                    ) : !user.is_active && !user.is_deactivated ? (
                       <>
                         <button
                           onClick={() =>
