@@ -45,27 +45,38 @@ class GameCreateView(generics.CreateAPIView):
 
 
 class MyGamesView(APIView):
-    """Current user's games split into 'active' (joined) and 'pending' (invited)."""
+    """Current user's games split into active, pending, historical, and cancelled games."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
         games = (
             Game.objects.filter(game_participants__student=user)
-            .exclude(reservation__status=Reservation.Status.CANCELLED)
             .distinct()
             .select_related("reservation__terrain__sport", "reservation__organizer", "reservation__timeslot")
         )
 
-        active, pending = [], []
+        active, pending, history, cancelled = [], [], [], []
         for game in games:
             gp = game.game_participants.filter(student=user).first()
             if not gp:
                 continue
             data = GameListSerializer(game, context={"request": request}).data
-            (active if gp.status == GameParticipant.Status.JOINED else pending).append(data)
+            if data["is_cancelled"]:
+                cancelled.append(data)
+            elif data["is_finished"]:
+                history.append(data)
+            elif gp.status == GameParticipant.Status.JOINED:
+                active.append(data)
+            else:
+                pending.append(data)
 
-        return Response({"active": active, "pending": pending})
+        return Response({
+            "active": active,
+            "pending": pending,
+            "history": history,
+            "cancelled": cancelled,
+        })
 
 
 class GamesListView(generics.ListAPIView):
@@ -118,10 +129,24 @@ class GameInviteView(APIView):
 
     def post(self, request, pk):
         game = get_object_or_404(Game, pk=pk)
+        if game.reservation.status == Reservation.Status.CANCELLED:
+            return Response(
+                {"detail": "Ce jeu a été annulé et n'accepte plus d'invitations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        slot_end = datetime.combine(game.reservation.timeslot.date, game.reservation.timeslot.end_time)
+        if timezone.is_naive(slot_end):
+            slot_end = timezone.make_aware(slot_end)
+        if slot_end < timezone.now():
+            return Response(
+                {"detail": "Ce jeu est terminé et n'accepte plus d'invitations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        is_owner = game.reservation.organizer_id == request.user.id
         is_member = game.game_participants.filter(
             student=request.user, status=GameParticipant.Status.JOINED
         ).exists()
-        if not is_member:
+        if not (is_member or is_owner):
             return Response(
                 {"detail": "Vous devez faire partie de ce jeu pour inviter quelqu'un."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -132,6 +157,16 @@ class GameInviteView(APIView):
         invited_user = serializer.validated_data["student_id"]
 
         with transaction.atomic():
+            # Keep legacy games valid when the organizer participant row was not created.
+            if is_owner and not is_member:
+                GameParticipant.objects.create(
+                    game=game,
+                    student=request.user,
+                    status=GameParticipant.Status.JOINED,
+                    invited_by=request.user,
+                    joined_at=timezone.now(),
+                )
+
             existing = game.game_participants.filter(student=invited_user).first()
             if existing:
                 detail = (
@@ -259,7 +294,7 @@ class GameLeaveOrKickView(APIView):
     """
     POST {}                        -> current user leaves.
     POST {"student_id": "..."}     -> owner kicks that student (or cancels a pending invite).
-    Owner leaving cancels the reservation and deletes the whole lobby.
+    Owner leaving cancels the reservation and keeps the lobby in history.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -297,7 +332,7 @@ class GameLeaveOrKickView(APIView):
 
             return Response({"detail": "Invitation annulée." if was_invited else "Participant exclu."})
 
-        # --- Owner leaving: cancel the reservation and tear down the lobby ---
+        # --- Owner leaving: cancel the reservation but preserve the lobby ---
         if request.user == organizer:
             slot_start = datetime.combine(
                 game.reservation.timeslot.date,
@@ -319,9 +354,8 @@ class GameLeaveOrKickView(APIView):
 
                 game.reservation.status = Reservation.Status.CANCELLED
                 game.reservation.save()
-                game.delete()
 
-            return Response({"detail": f"Le jeu « {label} » a été annulé et la réservation libérée."})
+            return Response({"detail": f"Le jeu « {label} » a été annulé."})
 
         # --- Joined member leaving voluntarily ---
         with transaction.atomic():

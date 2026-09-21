@@ -10,7 +10,7 @@ const ArrowLeftIcon = ({ className = "h-5 w-5" }) => (
   </svg>
 );
 
-function GameCard({ game, onOpen, pending }) {
+function GameCard({ game, onOpen, pending, closedLabel }) {
   const isFull = game.occupied_count >= game.capacity;
 
   return (
@@ -26,6 +26,11 @@ function GameCard({ game, onOpen, pending }) {
           {pending && (
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
               Invitation
+            </span>
+          )}
+          {closedLabel && (
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
+              {closedLabel}
             </span>
           )}
           {isFull && (
@@ -82,7 +87,15 @@ export default function MyGamesPage() {
 
   const active = data?.active || [];
   const pending = data?.pending || [];
-  const games = tab === "active" ? active : pending;
+  const history = data?.history || [];
+  const cancelled = data?.cancelled || [];
+  const games = tab === "active"
+    ? active
+    : tab === "pending"
+    ? pending
+    : tab === "history"
+    ? history
+    : cancelled;
 
   if (isLoading) {
     return (
@@ -105,7 +118,7 @@ export default function MyGamesPage() {
           </Link>
           <div>
             <h1 className="font-display text-3xl uppercase tracking-tight text-ink">Mes Jeux</h1>
-            <p className="text-sm font-medium text-steel">Vos matchs actifs et vos invitations</p>
+            <p className="text-sm font-medium text-steel">Vos matchs, invitations et historique</p>
           </div>
         </div>
 
@@ -117,6 +130,22 @@ export default function MyGamesPage() {
             }`}
           >
             Actifs ({active.length})
+          </button>
+          <button
+            onClick={() => setTab("history")}
+            className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              tab === "history" ? "bg-ink text-white shadow-sm" : "text-steel hover:text-ink"
+            }`}
+          >
+            Historique ({history.length})
+          </button>
+          <button
+            onClick={() => setTab("cancelled")}
+            className={`flex-1 rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              tab === "cancelled" ? "bg-ink text-white shadow-sm" : "text-steel hover:text-ink"
+            }`}
+          >
+            Annulées ({cancelled.length})
           </button>
           <button
             onClick={() => setTab("pending")}
@@ -136,7 +165,13 @@ export default function MyGamesPage() {
         {games.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-12 text-center">
             <p className="text-sm font-medium text-steel">
-              {tab === "active" ? "Vous n'avez aucun jeu actif." : "Aucune invitation en attente."}
+              {tab === "active"
+                ? "Vous n'avez aucun jeu actif."
+                : tab === "pending"
+                ? "Aucune invitation en attente."
+                : tab === "history"
+                ? "Aucun jeu dans votre historique."
+                : "Aucun jeu annulé."}
             </p>
             <Link
               to={tab === "active" ? "/jeux" : "/"}
@@ -152,6 +187,7 @@ export default function MyGamesPage() {
                 key={game.id}
                 game={game}
                 pending={tab === "pending"}
+                closedLabel={tab === "history" ? "Terminé" : tab === "cancelled" ? "Annulé" : ""}
                 onOpen={() => navigate(`/games/${game.id}`)}
               />
             ))}

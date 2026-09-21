@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from apps.admin_panel.permissions import IsAdminUser
 
 from apps.reservations.models import Reservation, TimeSlot
 from .models import Sport, Terrain
@@ -91,14 +92,14 @@ class AdminSportListView(generics.ListCreateAPIView):
     """Allows admins to list all sports (active & inactive) or create a new sport."""
     queryset = Sport.objects.all().order_by("-id")
     serializer_class = SportSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminUser]
 
 
 class AdminSportDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Allows admins to update, patch, or soft-delete/deactivate a sport."""
     queryset = Sport.objects.all()
     serializer_class = SportSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminUser]
 
     def destroy(self, request, *args, **kwargs):
         sport = self.get_object()

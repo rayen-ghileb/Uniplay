@@ -64,12 +64,14 @@ export default function AdminStudents() {
               <th className="px-6 py-4 font-bold">Téléphone</th>
               <th className="px-6 py-4 font-bold">Classe</th>
               <th className="px-6 py-4 font-bold">Spécialité</th>
+              <th className="px-6 py-4 font-bold">Sexe</th>
+              <th className="px-6 py-4 font-bold">Âge</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500 font-medium">
+                <td colSpan={8} className="px-6 py-8 text-center text-gray-500 font-medium">
                   Aucun étudiant ne correspond à la recherche.
                 </td>
               </tr>
@@ -86,6 +88,12 @@ export default function AdminStudents() {
                   <td className="px-6 py-4 text-gray-500">{student.phone_number || "—"}</td>
                   <td className="px-6 py-4 text-gray-500">{student.classe || "—"}</td>
                   <td className="px-6 py-4 text-gray-500">{student.specialite || "—"}</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {student.sex ? { F: "Femme", M: "Homme", O: "Autre" }[student.sex] : "—"}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {student.age != null ? `${student.age} ans` : "—"}
+                  </td>
                 </tr>
               ))
             )}

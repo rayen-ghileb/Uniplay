@@ -6,5 +6,17 @@ class IsAdmin(permissions.BasePermission):
         return (
             request.user
             and request.user.is_authenticated
-            and getattr(request.user, "is_admin", False)
+            and (
+                getattr(request.user, "is_admin", False)
+                or getattr(request.user, "is_superadmin", False)
+            )
+        )
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and getattr(request.user, "is_superadmin", False)
         )

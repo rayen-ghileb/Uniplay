@@ -27,7 +27,7 @@ export default function LoginPage() {
         sessionStorage.setItem("login_warning", res.data.reactivation_warning);
       }
       loginUser(user, { access, refresh });
-      navigate(user.is_admin ? "/admin" : "/");
+      navigate(user.is_admin || user.is_superadmin || user.is_employee ? "/admin" : "/");
     } catch (err) {
       const msg = err.response?.data?.detail;
       setServerError(msg || "Identifiants invalides ou compte non encore approuvé par un administrateur.");

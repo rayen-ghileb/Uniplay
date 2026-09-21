@@ -4,6 +4,12 @@ from django.conf import settings
 
 
 class User(AbstractUser):
+    SEX_CHOICES = (
+        ("F", "Femme"),
+        ("M", "Homme"),
+        ("O", "Autre"),
+    )
+
     username = models.CharField(
         max_length=150,
         unique=True,
@@ -14,8 +20,12 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=20, verbose_name="numéro de téléphone")
     classe = models.CharField(max_length=100, blank=True, verbose_name="classe")
     specialite = models.CharField(max_length=100, blank=True, verbose_name="spécialité")
+    sex = models.CharField(max_length=1, choices=SEX_CHOICES, blank=True, verbose_name="sexe")
+    date_of_birth = models.DateField(null=True, blank=True, verbose_name="date de naissance")
     photo = models.ImageField(upload_to="users/photos/", blank=True, null=True, verbose_name="photo de profil")
     is_admin = models.BooleanField(default=False)
+    is_superadmin = models.BooleanField(default=False)
+    is_employee = models.BooleanField(default=False, verbose_name="employé(e)")
     is_deactivated = models.BooleanField(default=False)
     is_suspended = models.BooleanField(
         default=False,

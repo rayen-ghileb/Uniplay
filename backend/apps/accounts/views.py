@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
+from apps.admin_panel.permissions import IsAdminUser
 from .permissions import IsAdmin
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -40,7 +41,10 @@ class AdminUserListView(generics.ListAPIView):
 
     def get_queryset(self):
         # is_active=False comes first, then ordered by newest registrations
-        return User.objects.all().order_by("is_active", "-date_joined")
+        queryset = User.objects.exclude(is_superadmin=True)
+        if not getattr(self.request.user, "is_superadmin", False):
+            queryset = queryset.filter(is_admin=False, is_employee=False)
+        return queryset.order_by("is_active", "-date_joined")
 
 
 class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -48,6 +52,12 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        queryset = User.objects.exclude(is_superadmin=True)
+        if not getattr(self.request.user, "is_superadmin", False):
+            queryset = queryset.filter(is_admin=False, is_employee=False)
+        return queryset
 
     def update(self, request, *args, **kwargs):
         user = self.get_object()
@@ -96,7 +106,7 @@ class UserListView(generics.ListAPIView):
 
     def get_queryset(self):
         # Excludes admins and pending accounts from the dropdown results
-        return User.objects.filter(is_admin=False, is_active=True).order_by("first_name", "last_name")
+        return User.objects.filter(is_admin=False, is_employee=False, is_active=True).order_by("first_name", "last_name")
 
 
 class LoginView(TokenObtainPairView):
@@ -135,7 +145,7 @@ class LogoutView(APIView):
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    ALLOWED_UPDATE_FIELDS = {"first_name", "last_name", "email", "phone_number", "classe", "specialite", "photo"}
+    ALLOWED_UPDATE_FIELDS = {"first_name", "last_name", "email", "phone_number", "classe", "specialite", "sex", "date_of_birth", "photo"}
 
     def get(self, request):
         serializer = UserSerializer(request.user, context={"request": request})
@@ -220,10 +230,10 @@ class ValidateStudentIdsView(APIView):
 class AdminStudentListView(generics.ListAPIView):
     """Read-only list of registered students (non-admin users) for 'Gestion des étudiants'."""
     serializer_class = StudentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
     def get_queryset(self):
-        return User.objects.filter(is_admin=False).order_by("first_name", "last_name")
+        return User.objects.filter(is_admin=False, is_employee=False).order_by("first_name", "last_name")
 
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]

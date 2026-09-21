@@ -41,13 +41,16 @@ class GameListSerializer(serializers.ModelSerializer):
     my_status = serializers.SerializerMethodField()
     invited_by_name = serializers.SerializerMethodField()
     occupied_count = serializers.SerializerMethodField()
+    is_cancelled = serializers.SerializerMethodField()
+    is_finished = serializers.SerializerMethodField()
 
     class Meta:
         model = Game
         fields = [
             "id", "is_public", "terrain_name", "sport_name", "sport_id",
             "date", "start_time", "end_time", "owner_name", "capacity",
-            "joined_count", "my_status", "invited_by_name", "occupied_count"
+            "joined_count", "my_status", "invited_by_name", "occupied_count",
+            "is_cancelled", "is_finished",
         ]
 
     def get_owner_name(self, obj):
@@ -61,6 +64,18 @@ class GameListSerializer(serializers.ModelSerializer):
     def get_occupied_count(self, obj):
         from .serializers import _occupied_count
         return _occupied_count(obj)
+
+    def get_is_cancelled(self, obj):
+        return obj.reservation.status == Reservation.Status.CANCELLED
+
+    def get_is_finished(self, obj):
+        from datetime import datetime
+        from django.utils import timezone
+
+        end = datetime.combine(obj.reservation.timeslot.date, obj.reservation.timeslot.end_time)
+        if timezone.is_naive(end):
+            end = timezone.make_aware(end)
+        return end < timezone.now()
 
     
 
@@ -190,7 +205,7 @@ def _notify(recipient, actor, kind, game):
 
 def _notify_admins(kind, game, actor):
     """Fans a notification out to every admin user."""
-    admins = User.objects.filter(is_admin=True)
+    admins = User.objects.filter(is_admin=True) | User.objects.filter(is_employee=True)
     for admin in admins:
         if admin == actor:
             continue

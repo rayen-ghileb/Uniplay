@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../services/api.js";
 import ConfirmModal from "../../components/ConfirmModal.jsx";
 import Toast from "../../components/Toast.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 const CheckIcon = ({ className = "h-4 w-4" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -36,11 +37,15 @@ const emptyForm = {
   phone_number: "",
   classe: "",
   specialite: "",
+  sex: "",
+  date_of_birth: "",
   is_admin: false,
   account_status: "pending",
 };
 
 export default function AdminUsers() {
+  const { user } = useAuth();
+  const isSuperAdmin = Boolean(user?.is_superadmin);
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("all");
   const [userToReject, setUserToReject] = useState(null);
@@ -140,6 +145,8 @@ export default function AdminUsers() {
       phone_number: user.phone_number || "",
       classe: user.classe || "",
       specialite: user.specialite || "",
+      sex: user.sex || "",
+      date_of_birth: user.date_of_birth || "",
       is_admin: Boolean(user.is_admin),
       account_status: user.is_deactivated ? "deactivated" : user.is_active ? "active" : "pending",
     });
@@ -252,6 +259,8 @@ export default function AdminUsers() {
             <tr>
               <th className="px-6 py-4 font-bold">Étudiant</th>
               <th className="px-6 py-4 font-bold">Matricule & Email</th>
+              <th className="px-6 py-4 font-bold">Sexe</th>
+              <th className="px-6 py-4 font-bold">Âge</th>
               <th className="px-6 py-4 font-bold">Rôle</th>
               <th className="px-6 py-4 font-bold">Statut</th>
               <th className="px-6 py-4 font-bold text-right">Actions</th>
@@ -260,7 +269,7 @@ export default function AdminUsers() {
           <tbody className="divide-y divide-gray-100">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500 font-medium">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500 font-medium">
                   Aucun utilisateur ne correspond au filtre sélectionné.
                 </td>
               </tr>
@@ -281,19 +290,29 @@ export default function AdminUsers() {
                     <div className="font-mono text-xs font-bold text-ink">{user.username}</div>
                     <div className="text-xs text-gray-500">{user.email}</div>
                   </td>
+                  <td className="px-6 py-4 text-sm font-medium text-ink">
+                    {user.sex ? { F: "Femme", M: "Homme", O: "Autre" }[user.sex] : "Non renseigné"}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-ink">
+                    {user.age != null ? `${user.age} ans` : "Non renseigné"}
+                  </td>
                   <td className="px-6 py-4">
                     <button
+                      type="button"
+                      disabled={!isSuperAdmin}
                       onClick={() =>
-                        toggleAdminMutation.mutate({ id: user.id, is_admin: !user.is_admin })
+                        isSuperAdmin && toggleAdminMutation.mutate({ id: user.id, is_admin: !user.is_admin })
                       }
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors disabled:cursor-default ${
                         user.is_admin
                           ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                          : user.is_employee
+                          ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
                       <ShieldIcon />
-                      {user.is_admin ? "Admin" : "Étudiant"}
+                      {user.is_admin ? "Admin" : user.is_employee ? "Employé(e)" : "Étudiant"}
                     </button>
                   </td>
                   <td className="px-6 py-4">
@@ -329,12 +348,14 @@ export default function AdminUsers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
-                    <button
-                      onClick={() => openEditModal(user)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-ink hover:border-crimson hover:text-crimson transition-colors"
-                    >
-                      <EditIcon /> Modifier
-                    </button>
+                    {(!user.is_admin || isSuperAdmin) && (
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-ink hover:border-crimson hover:text-crimson transition-colors"
+                      >
+                        <EditIcon /> Modifier
+                      </button>
+                    )}
                     {user.is_suspended ? (
                       <button
                         onClick={() =>
@@ -364,7 +385,7 @@ export default function AdminUsers() {
                         </button>
                       </>
                     ) : user.is_active ? (
-                      !user.is_admin && (
+                      (!user.is_admin || isSuperAdmin) && (
                         <button
                           onClick={() =>
                             updateStatusMutation.mutate({ id: user.id, is_active: false })
@@ -429,6 +450,30 @@ export default function AdminUsers() {
                     />
                   </label>
                 ))}
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">Sexe</span>
+                  <select
+                    value={formData.sex}
+                    onChange={(event) => setFormData({ ...formData, sex: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+                  >
+                    <option value="">Non renseigné</option>
+                    <option value="F">Femme</option>
+                    <option value="M">Homme</option>
+                    <option value="O">Autre</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">Date de naissance</span>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+                    onChange={(event) => setFormData({ ...formData, date_of_birth: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+                  />
+                  {formData.date_of_birth && userToEdit.age != null && <span className="mt-1 block text-xs text-gray-500">Âge actuel : {userToEdit.age} ans</span>}
+                </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">Statut du compte</span>
                   <select

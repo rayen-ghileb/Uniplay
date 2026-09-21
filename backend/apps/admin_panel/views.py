@@ -106,7 +106,7 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        total_students = User.objects.filter(is_admin=False).count()
+        total_students = User.objects.filter(is_admin=False, is_employee=False).count()
 
         res_stats = Reservation.objects.aggregate(
             total=Count('id'),
@@ -397,7 +397,7 @@ class AdminWarnStudentView(APIView):
         from apps.games.serializers import _notify
         from apps.games.models import Notification
 
-        student = get_object_or_404(User, username=student_id, is_admin=False)
+        student = get_object_or_404(User, username=student_id, is_admin=False, is_employee=False)
         game = Game.objects.filter(pk=game_id).first() if game_id else None
 
         existing_count = Warning.objects.filter(recipient=student).count()

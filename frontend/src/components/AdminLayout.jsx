@@ -167,13 +167,13 @@ function AdminNotificationBell() {
 }
 
 export default function AdminLayout({ children }) {
-  const { logoutUser } = useAuth();
+  const { logoutUser, isEmployee } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const navLinks = [
     { path: "/admin", label: "Tableau de bord", icon: DashboardIcon },
-    { path: "/admin/users", label: "Gestion des Utilisateurs", icon: UsersIcon },
+    ...(!isEmployee ? [{ path: "/admin/users", label: "Gestion des Utilisateurs", icon: UsersIcon }] : []),
     { path: "/admin/students", label: "Gestion des Étudiants", icon: UsersIcon },
     { path: "/admin/groups", label: "Gestion de groupe", icon: UsersIcon },
     { path: "/admin/terrains", label: "Gestion des terrains", icon: TerrainIcon },

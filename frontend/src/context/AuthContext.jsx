@@ -30,8 +30,11 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const isAdmin = Boolean(user?.is_admin || user?.is_superadmin || user?.is_employee);
+  const isEmployee = Boolean(user?.is_employee && !user?.is_admin);
+
   return (
-    <AuthContext.Provider value={{ user, setUser, loginUser, logoutUser, loading, isAdmin: user?.is_admin }}>
+    <AuthContext.Provider value={{ user, setUser, loginUser, logoutUser, loading, isAdmin, isEmployee }}>
       {children}
     </AuthContext.Provider>
   );

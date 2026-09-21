@@ -28,6 +28,8 @@ export default function RegisterPage() {
       formData.append("phone_number", data.phone_number);
       formData.append("classe", data.classe);
       formData.append("specialite", data.specialite);
+      formData.append("sex", data.sex);
+      formData.append("date_of_birth", data.date_of_birth);
       if (data.photo?.[0]) {
         formData.append("photo", data.photo[0]);
       }
@@ -46,6 +48,8 @@ export default function RegisterPage() {
         setServerError("Numéro de téléphone invalide.");
       } else if (resp?.classe || resp?.specialite) {
         setServerError("Classe et spécialité sont requises.");
+      } else if (resp?.sex || resp?.date_of_birth) {
+        setServerError(resp.date_of_birth?.[0] || "Sexe et date de naissance sont requis.");
       } else {
         setServerError("Une erreur est survenue lors de la création du compte.");
       }
@@ -169,6 +173,42 @@ export default function RegisterPage() {
               {errors.specialite && (
                 <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.specialite.message}</p>
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Sexe</label>
+              <select
+                {...register("sex", { required: "Sexe requis" })}
+                defaultValue=""
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+              >
+                <option value="" disabled>Sélectionner</option>
+                <option value="F">Femme</option>
+                <option value="M">Homme</option>
+                <option value="O">Autre</option>
+              </select>
+              {errors.sex && <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.sex.message}</p>}
+            </div>
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Date de naissance</label>
+              <input
+                type="date"
+                {...register("date_of_birth", {
+                  required: "Date de naissance requise",
+                  validate: (value) => {
+                    const birthDate = new Date(`${value}T00:00:00`);
+                    const today = new Date();
+                    let age = today.getFullYear() - birthDate.getFullYear();
+                    if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age -= 1;
+                    return age >= 18 || "L'utilisateur doit avoir au moins 18 ans";
+                  },
+                })}
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+              />
+              {errors.date_of_birth && <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.date_of_birth.message}</p>}
             </div>
           </div>
 

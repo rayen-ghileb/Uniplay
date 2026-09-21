@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
@@ -11,32 +12,79 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    age = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "username", "email", "phone_number", "classe", "specialite", "photo",
-            "first_name", "last_name", "is_active", "is_admin", "date_joined",
+            "first_name", "last_name", "sex", "date_of_birth", "age", "is_active", "is_admin", "is_superadmin", "is_employee", "date_joined",
             "is_deactivated", "is_suspended",
             "show_reactivation_warning",
         ]
-        read_only_fields = ["date_joined", "show_reactivation_warning"]
+        read_only_fields = ["age", "date_joined", "show_reactivation_warning", "is_employee", "is_superadmin"]
+
+    def get_age(self, user):
+        if not user.date_of_birth:
+            return None
+        today = timezone.localdate()
+        return today.year - user.date_of_birth.year - (
+            (today.month, today.day) < (user.date_of_birth.month, user.date_of_birth.day)
+        )
+
+    def validate_is_admin(self, value):
+        request = self.context.get("request")
+        if request and not getattr(request.user, "is_superadmin", False):
+            current_value = self.instance.is_admin if self.instance else False
+            if value != current_value:
+                raise serializers.ValidationError(
+                    "Seul un superadministrateur peut modifier le rôle administrateur."
+                )
+        return value
+
+    def validate_date_of_birth(self, value):
+        today = timezone.localdate()
+        if value > today:
+            raise serializers.ValidationError("La date de naissance ne peut pas être dans le futur.")
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < 18:
+            raise serializers.ValidationError("L'utilisateur doit avoir au moins 18 ans.")
+        return value
 
 
 class StudentSerializer(serializers.ModelSerializer):
+    age = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "phone_number", "classe", "specialite"]
+        fields = [
+            "id", "username", "first_name", "last_name", "email", "phone_number",
+            "classe", "specialite", "sex", "date_of_birth", "age",
+        ]
+
+    def get_age(self, user):
+        if not user.date_of_birth:
+            return None
+        today = timezone.localdate()
+        return today.year - user.date_of_birth.year - (
+            (today.month, today.day) < (user.date_of_birth.month, user.date_of_birth.day)
+        )
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     classe = serializers.CharField(required=True)
     specialite = serializers.CharField(required=True)
+    sex = serializers.ChoiceField(choices=User.SEX_CHOICES, required=True)
+    date_of_birth = serializers.DateField(required=True)
     photo = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "phone_number", "classe", "specialite", "photo", "first_name", "last_name"]
+        fields = ["username", "email", "password", "phone_number", "classe", "specialite", "sex", "date_of_birth", "photo", "first_name", "last_name"]
+
+    def validate_date_of_birth(self, value):
+        return UserSerializer().validate_date_of_birth(value)
 
     def create(self, validated_data):
         user = User.objects.create_user(
@@ -46,6 +94,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone_number=validated_data["phone_number"],
             classe=validated_data["classe"],
             specialite=validated_data["specialite"],
+            sex=validated_data["sex"],
+            date_of_birth=validated_data["date_of_birth"],
             photo=validated_data.get("photo"),
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
@@ -95,6 +145,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "first_name": self.user.first_name,
             "last_name": self.user.last_name,
             "is_admin": getattr(self.user, "is_admin", False),
+            "is_superadmin": getattr(self.user, "is_superadmin", False),
+            "is_employee": getattr(self.user, "is_employee", False),
             "is_active": self.user.is_active,
         }
         if reactivation_warning:

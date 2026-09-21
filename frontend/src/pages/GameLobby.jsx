@@ -156,6 +156,8 @@ export default function GameLobby() {
   const isFull = occupied >= game.capacity;
   const myStatus = game.my_status;
   const isMember = myStatus === "joined";
+  const isClosed = game.is_cancelled || game.is_finished;
+  const canInvite = !isClosed && (isMember || isOwner);
 
   return (
     <div className="min-h-screen bg-fog px-4 py-8 sm:px-6 lg:px-8">
@@ -195,6 +197,16 @@ export default function GameLobby() {
                 <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
                   {game.is_public ? "🌍 Public" : "🔒 Privé"}
                 </span>
+                {game.is_cancelled && (
+                  <span className="rounded-full bg-gray-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                    Annulé
+                  </span>
+                )}
+                {!game.is_cancelled && game.is_finished && (
+                  <span className="rounded-full bg-gray-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                    Terminé
+                  </span>
+                )}
                 {isFull && (
                   <span className="rounded-full bg-crimson px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
                     Complet
@@ -221,7 +233,7 @@ export default function GameLobby() {
         </div>
 
         {/* Action bar for non-members */}
-        {!isMember && (
+        {!isMember && !isClosed && (
           <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-bold text-ink">
@@ -294,7 +306,7 @@ export default function GameLobby() {
                       <div className="font-mono text-xs text-steel">{p.student_id}</div>
                     </div>
                   </div>
-                  {isOwner && !isThisOwner && (
+                  {isOwner && !isClosed && !isThisOwner && (
                     <button
                       onClick={() => setConfirmation({ type: "kick", participant: p })}
                       disabled={kickMutation.isPending}
@@ -328,7 +340,7 @@ export default function GameLobby() {
                   <span className="flex-none rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
                     En attente
                   </span>
-                  {isOwner && (
+                  {isOwner && !isClosed && (
                     <button
                       onClick={() => kickMutation.mutate(p.student_id)}
                       disabled={kickMutation.isPending}
@@ -343,8 +355,8 @@ export default function GameLobby() {
           </div>
         )}
 
-        {/* Invite box — any joined member can invite */}
-        {isMember && !isFull && (
+        {/* Invite box — joined members and the game owner can invite */}
+        {canInvite && !isFull && (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-ink">Inviter un joueur</h3>
             <p className="mt-1 text-xs font-medium text-steel">
@@ -371,7 +383,7 @@ export default function GameLobby() {
         )}
 
         {/* Leave / cancel */}
-        {isMember && (
+        {isMember && !isClosed && (
           <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-bold text-ink">

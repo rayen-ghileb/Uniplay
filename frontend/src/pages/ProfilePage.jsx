@@ -122,6 +122,9 @@ export default function ProfilePage() {
           <InfoField label="Numéro de téléphone" value={user?.phone_number} />
           <InfoField label="Classe" value={user?.classe} />
           <InfoField label="Spécialité" value={user?.specialite} />
+          <InfoField label="Sexe" value={{ F: "Femme", M: "Homme", O: "Autre" }[user?.sex]} />
+          <InfoField label="Date de naissance" value={user?.date_of_birth} />
+          <InfoField label="Âge" value={user?.age != null ? `${user.age} ans` : ""} />
         </div>
       </div>
       <Toast

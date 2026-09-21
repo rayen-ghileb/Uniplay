@@ -41,6 +41,8 @@ export default function EditProfilePage() {
         phone_number: user.phone_number || "",
         classe: user.classe || "",
         specialite: user.specialite || "",
+        sex: user.sex || "",
+        date_of_birth: user.date_of_birth || "",
       });
     }
   }, [user, reset]);
@@ -199,6 +201,40 @@ export default function EditProfilePage() {
               className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
             />
             {errors.specialite && <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.specialite.message}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Sexe</label>
+            <select
+              {...register("sex")}
+              className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+            >
+              <option value="">Non renseigné</option>
+              <option value="F">Femme</option>
+              <option value="M">Homme</option>
+              <option value="O">Autre</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500">Date de naissance</label>
+            <input
+              type="date"
+              {...register("date_of_birth", {
+                validate: (value) => {
+                  if (!value) return true;
+                  const birthDate = new Date(`${value}T00:00:00`);
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  if (today.getMonth() < birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) age -= 1;
+                  return age >= 18 || "L'utilisateur doit avoir au moins 18 ans";
+                },
+              })}
+              max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+              className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink transition focus:border-crimson focus:bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"
+            />
+            {errors.date_of_birth && <p className="mt-1.5 text-sm font-medium text-crimsonDark">{errors.date_of_birth.message}</p>}
           </div>
         </div>
 

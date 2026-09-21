@@ -1,7 +1,8 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 export function AdminRoute({ children }) {
   const { user, loading, isAdmin } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -19,6 +20,10 @@ export function AdminRoute({ children }) {
   // If logged in but NOT an admin, kick them to the homepage
   if (!isAdmin) {
     return <Navigate to="/" replace />;
+  }
+
+  if (user.is_employee && !user.is_admin && location.pathname.startsWith("/admin/users")) {
+    return <Navigate to="/admin" replace />;
   }
 
   return children;
