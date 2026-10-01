@@ -26,12 +26,17 @@ function Avatar({ participant, size = "h-10 w-10" }) {
   );
 }
 
+function UserSuggestionAvatar({ user }) {
+  return <Avatar participant={{ ...user, student_id: user.username }} size="h-8 w-8" />;
+}
+
 export default function GameLobby() {
   const { gameId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const [inviteSearch, setInviteSearch] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const [feedback, setFeedback] = useState({ type: "success", message: location.state?.feedback || "" });
 
@@ -49,6 +54,11 @@ export default function GameLobby() {
   const { data: game, isLoading, isError } = useQuery({
     queryKey: ["game", gameId],
     queryFn: async () => (await api.get(`/games/${gameId}/`)).data,
+  });
+
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => (await api.get("/auth/users/")).data,
   });
 
   const refresh = () => {
@@ -70,18 +80,6 @@ export default function GameLobby() {
     },
     onError: (err) => showError(err, "Impossible d'envoyer l'invitation."),
   });
-
-  const handleInvite = (event) => {
-    event.preventDefault();
-    const studentId = inviteSearch.trim();
-
-    if (!studentId) {
-      setFeedback({ type: "error", message: "Veuillez saisir un matricule." });
-      return;
-    }
-
-    inviteMutation.mutate(studentId);
-  };
 
   const joinMutation = useMutation({
     mutationFn: async () => api.post(`/games/${gameId}/join/`),
@@ -121,11 +119,20 @@ export default function GameLobby() {
     onSuccess: () => {
       queryClient.invalidateQueries(["reservations"]);
       queryClient.invalidateQueries(["timeslots"]);
-      navigate("/mes-jeux", {
-        state: { feedback: "Jeu annulé avec succès. La réservation a été libérée." },
+      navigate("/", {
+        state: { feedback: "Vous avez quitté la partie. Consultez la liste des jeux publiques et rejoignez-en un autre." },
       });
     },
     onError: (err) => showError(err, "Impossible de quitter le jeu."),
+  });
+
+  const resizeMutation = useMutation({
+    mutationFn: async (newSize) => api.post(`/games/${gameId}/resize/`, { max_players: newSize }),
+    onSuccess: () => {
+      setFeedback({ type: "success", message: "Taille du lobby mise à jour." });
+      refresh();
+    },
+    onError: (err) => showError(err, "Impossible de modifier la taille du lobby."),
   });
 
   if (isLoading) {
@@ -158,6 +165,18 @@ export default function GameLobby() {
   const isMember = myStatus === "joined";
   const isClosed = game.is_cancelled || game.is_finished;
   const canInvite = !isClosed && (isMember || isOwner);
+  const alreadyInGame = new Set(game.participants.map((p) => p.student_id));
+  const invitableUsers = allUsers.filter((u) => {
+    if (u.username === me?.username || alreadyInGame.has(u.username)) return false;
+    const term = inviteSearch.trim().toLowerCase();
+    if (!term) return false;
+    return (
+      u.username.toLowerCase().includes(term) ||
+      u.first_name?.toLowerCase().includes(term) ||
+      u.last_name?.toLowerCase().includes(term) ||
+      `${u.first_name} ${u.last_name}`.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-fog px-4 py-8 sm:px-6 lg:px-8">
@@ -231,6 +250,34 @@ export default function GameLobby() {
             </div>
           </div>
         </div>
+
+        {isOwner && (
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div>
+              <h3 className="font-bold text-ink">Taille du lobby</h3>
+              <p className="mt-0.5 text-xs font-medium text-steel">
+                Entre {occupied} (places déjà occupées) et {game.terrain_capacity} (capacité du terrain).
+              </p>
+            </div>
+            <div className="flex flex-none items-center gap-3">
+              <button
+                onClick={() => resizeMutation.mutate(game.capacity - 1)}
+                disabled={game.capacity <= occupied || resizeMutation.isPending}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-lg font-bold text-ink transition-colors hover:border-crimson hover:text-crimson disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                −
+              </button>
+              <span className="font-display text-2xl text-ink">{game.capacity}</span>
+              <button
+                onClick={() => resizeMutation.mutate(game.capacity + 1)}
+                disabled={game.capacity >= game.terrain_capacity || resizeMutation.isPending}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-lg font-bold text-ink transition-colors hover:border-crimson hover:text-crimson disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Action bar for non-members */}
         {!isMember && !isClosed && (
@@ -360,25 +407,53 @@ export default function GameLobby() {
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-ink">Inviter un joueur</h3>
             <p className="mt-1 text-xs font-medium text-steel">
-              Saisissez le matricule de l'étudiant à inviter.
+              Recherchez un étudiant par nom ou matricule.
             </p>
-            <form onSubmit={handleInvite} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="relative mt-3">
               <input
                 type="text"
                 value={inviteSearch}
-                onChange={(e) => setInviteSearch(e.target.value)}
-                placeholder="Matricule..."
-                aria-label="Matricule de l'étudiant"
-                className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink outline-none focus:border-crimson focus:bg-white focus:ring-2 focus:ring-crimson/20"
+                onChange={(e) => {
+                  setInviteSearch(e.target.value);
+                  setInviteOpen(true);
+                }}
+                onFocus={() => setInviteOpen(true)}
+                onBlur={() => setTimeout(() => setInviteOpen(false), 200)}
+                placeholder="Nom ou matricule..."
+                aria-label="Rechercher un étudiant à inviter"
+                className="w-full rounded-xl border border-gray-200 bg-fog px-4 py-3 text-sm font-medium text-ink outline-none focus:border-crimson focus:bg-white focus:ring-2 focus:ring-crimson/20"
               />
-              <button
-                type="submit"
-                disabled={inviteMutation.isPending}
-                className="rounded-xl bg-crimson px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-crimsonDark disabled:cursor-wait disabled:opacity-50"
-              >
-                {inviteMutation.isPending ? "Envoi..." : "Envoyer"}
-              </button>
-            </form>
+              {inviteOpen && inviteSearch.trim() && (
+                <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+                  {invitableUsers.length > 0 ? (
+                    invitableUsers.slice(0, 20).map((u) => (
+                      <button
+                        key={u.username}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setInviteOpen(false);
+                          setInviteSearch("");
+                          inviteMutation.mutate(u.username);
+                        }}
+                        disabled={inviteMutation.isPending}
+                        className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-2.5 text-left transition-colors last:border-0 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <UserSuggestionAvatar user={u} />
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-bold text-ink">
+                            {u.first_name} {u.last_name}
+                          </div>
+                          
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-center text-xs text-steel">Aucun étudiant trouvé.</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

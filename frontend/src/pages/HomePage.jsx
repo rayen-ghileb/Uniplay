@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api.js";
 import ConfirmModal from "../components/ConfirmModal.jsx";
@@ -34,12 +34,23 @@ const getSportTag = (sportName) => {
 
 export default function HomePage({ user: propUser }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const sportsRef = useRef(null);
   
   const [isHighlighted, setIsHighlighted] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [reservationToCancel, setReservationToCancel] = useState(null);
+  const [feedback, setFeedback] = useState({
+    type: "success",
+    message: location.state?.feedback || "",
+  });
+
+  useEffect(() => {
+    if (location.state?.feedback) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const { data: fetchedUser } = useQuery({
     queryKey: ["me"],
@@ -334,6 +345,11 @@ export default function HomePage({ user: propUser }) {
         </div>
 
       </div>
+      <Toast
+        type={feedback.type}
+        message={feedback.message}
+        onClose={() => setFeedback({ type: "", message: "" })}
+      />
       <Toast
         type="error"
         message={errorMessage}

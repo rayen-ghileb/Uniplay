@@ -41,6 +41,7 @@ export default function BookingModal({ terrain, onClose }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isPublic, setIsPublic] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [maxPlayers, setMaxPlayers] = useState(terrain.capacity || 4);
 
   const { data: timeslots = [], isLoading: loadingSlots } = useQuery({
     queryKey: ["timeslots", terrain.id, selectedDate],
@@ -107,6 +108,7 @@ export default function BookingModal({ terrain, onClose }) {
       terrain: terrain.id,
       timeslot: selectedSlot.id,
       is_public: isPublic,
+      max_players: maxPlayers,
     });
   };
 
@@ -298,6 +300,37 @@ export default function BookingModal({ terrain, onClose }) {
                 <p className="mt-1 text-xs font-medium text-steel">
                   Accessible uniquement aux joueurs que vous invitez.
                 </p>
+              </button>
+            </div>
+          </div>
+                    {/* 4. Lobby size */}
+          <div className="rounded-2xl border border-gray-200 bg-fog/40 p-4 sm:p-5">
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink">
+                4. Taille du lobby
+              </label>
+              <p className="mt-1 text-xs font-medium text-steel">
+                Combien de joueurs au total (vous inclus) ? Ajustable plus tard dans le lobby, jusqu'à {terrain.capacity}.
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setMaxPlayers((n) => Math.max(1, n - 1))}
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-gray-200 bg-white text-lg font-bold text-ink transition-colors hover:border-crimson hover:text-crimson"
+              >
+                −
+              </button>
+              <div className="flex-1 text-center">
+                <span className="font-display text-3xl text-ink">{maxPlayers}</span>
+                <span className="ml-1.5 text-xs font-medium text-steel">/ {terrain.capacity} joueurs</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMaxPlayers((n) => Math.min(terrain.capacity || 4, n + 1))}
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-gray-200 bg-white text-lg font-bold text-ink transition-colors hover:border-crimson hover:text-crimson"
+              >
+                +
               </button>
             </div>
           </div>

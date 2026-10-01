@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     GameCreateView, MyGamesView, GamesListView, GameDetailView,
-    GameInviteView, GameAcceptView, GameDeclineView, GameJoinView, GameLeaveOrKickView,
+    GameInviteView, GameAcceptView, GameDeclineView, GameJoinView, GameLeaveOrKickView, GameResizeView,
     NotificationListView, NotificationMarkReadView, NotificationDeleteView,
 )
 
@@ -18,4 +18,5 @@ urlpatterns = [
     path("<int:pk>/decline/", GameDeclineView.as_view(), name="game-decline"),
     path("<int:pk>/join/", GameJoinView.as_view(), name="game-join"),
     path("<int:pk>/leave/", GameLeaveOrKickView.as_view(), name="game-leave"),
+    path("<int:pk>/resize/", GameResizeView.as_view(), name="game-resize"),
 ]

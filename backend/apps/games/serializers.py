@@ -36,7 +36,10 @@ class GameListSerializer(serializers.ModelSerializer):
     start_time = serializers.TimeField(source="reservation.timeslot.start_time", read_only=True)
     end_time = serializers.TimeField(source="reservation.timeslot.end_time", read_only=True)
     owner_name = serializers.SerializerMethodField()
-    capacity = serializers.IntegerField(source="reservation.terrain.capacity", read_only=True)
+    # The lobby's chosen size (owner-adjustable), not the terrain's raw capacity.
+    capacity = serializers.IntegerField(source="max_players", read_only=True)
+    # The terrain's hard ceiling, so the frontend knows how far the lobby can grow.
+    terrain_capacity = serializers.IntegerField(source="reservation.terrain.capacity", read_only=True)
     joined_count = serializers.SerializerMethodField()
     my_status = serializers.SerializerMethodField()
     invited_by_name = serializers.SerializerMethodField()
@@ -48,7 +51,7 @@ class GameListSerializer(serializers.ModelSerializer):
         model = Game
         fields = [
             "id", "is_public", "terrain_name", "sport_name", "sport_id",
-            "date", "start_time", "end_time", "owner_name", "capacity",
+            "date", "start_time", "end_time", "owner_name", "capacity", "terrain_capacity",
             "joined_count", "my_status", "invited_by_name", "occupied_count",
             "is_cancelled", "is_finished",
         ]
@@ -62,7 +65,6 @@ class GameListSerializer(serializers.ModelSerializer):
         return obj.game_participants.filter(status=GameParticipant.Status.JOINED).count()
 
     def get_occupied_count(self, obj):
-        from .serializers import _occupied_count
         return _occupied_count(obj)
 
     def get_is_cancelled(self, obj):
@@ -76,8 +78,6 @@ class GameListSerializer(serializers.ModelSerializer):
         if timezone.is_naive(end):
             end = timezone.make_aware(end)
         return end < timezone.now()
-
-    
 
     def _my_participant(self, obj):
         request = self.context.get("request")
@@ -121,6 +121,7 @@ class GameCreateSerializer(serializers.Serializer):
     terrain = serializers.PrimaryKeyRelatedField(queryset=Terrain.objects.all())
     timeslot = serializers.PrimaryKeyRelatedField(queryset=TimeSlot.objects.all())
     is_public = serializers.BooleanField(default=True)
+    max_players = serializers.IntegerField(min_value=1)
 
     def validate(self, attrs):
         from django.utils import timezone
@@ -144,6 +145,11 @@ class GameCreateSerializer(serializers.Serializer):
         if Reservation.objects.filter(timeslot=timeslot, status=Reservation.Status.CONFIRMED).exists():
             raise serializers.ValidationError("Ce créneau est déjà réservé.")
 
+        if attrs["max_players"] > terrain.capacity:
+            raise serializers.ValidationError(
+                {"max_players": f"La taille du lobby ne peut pas dépasser la capacité du terrain ({terrain.capacity})."}
+            )
+
         return attrs
 
     def create(self, validated_data):
@@ -159,7 +165,11 @@ class GameCreateSerializer(serializers.Serializer):
                     organizer=request.user,
                     status=Reservation.Status.CONFIRMED,
                 )
-                game = Game.objects.create(reservation=reservation, is_public=validated_data["is_public"])
+                game = Game.objects.create(
+                    reservation=reservation,
+                    is_public=validated_data["is_public"],
+                    max_players=validated_data["max_players"],
+                )
                 GameParticipant.objects.create(
                     game=game,
                     student=request.user,
@@ -168,12 +178,16 @@ class GameCreateSerializer(serializers.Serializer):
                     joined_at=timezone.now(),
                 )
                 _add_participant_record(reservation, request.user)
-                _notify_admins(Notification.Kind.BOOKING_CREATED, game, actor=request.user)  # add this
+                _notify_admins(Notification.Kind.BOOKING_CREATED, game, actor=request.user)
         except IntegrityError:
             raise serializers.ValidationError(
                 "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez réessayer."
             )
         return game
+
+
+class GameResizeSerializer(serializers.Serializer):
+    max_players = serializers.IntegerField(min_value=1)
 
 
 class GameInviteSerializer(serializers.Serializer):
@@ -185,6 +199,7 @@ class GameInviteSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("Étudiant introuvable.")
         return user
+
 
 def _game_label(game):
     return f"{game.reservation.terrain.sport.name} — {game.reservation.terrain.name}"
@@ -203,9 +218,14 @@ def _notify(recipient, actor, kind, game):
         game_label=_game_label(game),
     )
 
+
 def _notify_admins(kind, game, actor):
-    """Fans a notification out to every admin user."""
-    admins = User.objects.filter(is_admin=True) | User.objects.filter(is_employee=True)
+    """
+    Fans a notification out to every admin-panel user (admins and employeurs alike).
+    Employeur accounts already have is_admin=True by design, so filtering on is_admin
+    covers both roles without needing a second, separate query.
+    """
+    admins = User.objects.filter(is_admin=True)
     for admin in admins:
         if admin == actor:
             continue
@@ -244,6 +264,7 @@ def _remove_participant_record(reservation, student):
     from apps.reservations.models import Participant
     Participant.objects.filter(reservation=reservation, student=student).delete()
 
+
 class NotificationSerializer(serializers.ModelSerializer):
     from .models import Notification as _N  # noqa
 
@@ -276,6 +297,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "warning": "L'administration vous a envoyé un avertissement",
         }
         return f"{messages.get(obj.kind, 'Notification')} · {label}"
+
 
 from .models import Notification
 NotificationSerializer.Meta.model = Notification

@@ -15,3 +15,4 @@ export const getNotifications = () => api.get("/games/notifications/");
 export const markNotificationsRead = (id) =>
   api.post("/games/notifications/read/", id ? { id } : {});
 export const deleteNotification = (id) => api.delete(`/games/notifications/${id}/`);
+export const resizeGame = (id, maxPlayers) => api.post(`/games/${id}/resize/`, { max_players: maxPlayers });

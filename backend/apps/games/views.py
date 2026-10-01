@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from .models import Game, GameParticipant, Notification
 from .serializers import (
     GameListSerializer, GameDetailSerializer, GameCreateSerializer, GameInviteSerializer,
+    GameResizeSerializer,
     NotificationSerializer,
     _add_participant_record, _remove_participant_record,
     _notify, _notify_many, _occupied_count, _game_label,
@@ -176,8 +177,9 @@ class GameInviteView(APIView):
                 )
                 return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Pending invitations hold a spot, so they count toward capacity here.
-            if _occupied_count(game) >= game.reservation.terrain.capacity:
+            # Pending invitations hold a spot, so they count toward the lobby's chosen size here,
+            # not the terrain's raw capacity.
+            if _occupied_count(game) >= game.max_players:
                 return Response(
                     {"detail": "Le jeu est complet (invitations en attente incluses)."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -264,8 +266,9 @@ class GameJoinView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # An existing invite already holds a spot for this user; otherwise check capacity.
-            if not existing and _occupied_count(game) >= game.reservation.terrain.capacity:
+            # An existing invite already holds a spot for this user; otherwise check the
+            # lobby's chosen size (max_players), not the terrain's raw capacity.
+            if not existing and _occupied_count(game) >= game.max_players:
                 return Response({"detail": "Le jeu est complet."}, status=status.HTTP_400_BAD_REQUEST)
 
             if existing:
@@ -287,6 +290,62 @@ class GameJoinView(APIView):
                 request.user, Notification.Kind.MEMBER_JOINED, game,
             )
 
+        return Response(GameDetailSerializer(game, context={"request": request}).data)
+
+
+class GameResizeView(APIView):
+    """Owner adjusts the lobby's target size, bounded by [current occupancy, terrain capacity]."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        game = get_object_or_404(Game, pk=pk)
+
+        if request.user != game.reservation.organizer:
+            return Response(
+                {"detail": "Seul le propriétaire peut modifier la taille du lobby."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if game.reservation.status == Reservation.Status.CANCELLED:
+            return Response(
+                {"detail": "Ce jeu est annulé, sa taille ne peut plus être modifiée."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        slot_end = datetime.combine(game.reservation.timeslot.date, game.reservation.timeslot.end_time)
+        if timezone.is_naive(slot_end):
+            slot_end = timezone.make_aware(slot_end)
+        if slot_end < timezone.now():
+            return Response(
+                {"detail": "Ce jeu est terminé, sa taille ne peut plus être modifiée."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = GameResizeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_size = serializer.validated_data["max_players"]
+
+        terrain_capacity = game.reservation.terrain.capacity
+        if new_size > terrain_capacity:
+            return Response(
+                {"detail": f"La taille du lobby ne peut pas dépasser la capacité du terrain ({terrain_capacity})."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_occupied = _occupied_count(game)
+        if new_size < current_occupied:
+            return Response(
+                {
+                    "detail": (
+                        f"Impossible de réduire à {new_size} : {current_occupied} places sont déjà "
+                        f"occupées (joueurs + invitations). Excluez ou annulez des invitations d'abord."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        game.max_players = new_size
+        game.save()
         return Response(GameDetailSerializer(game, context={"request": request}).data)
 
 

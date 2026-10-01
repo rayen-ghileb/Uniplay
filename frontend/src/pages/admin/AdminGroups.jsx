@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../services/api.js";
+import ConfirmModal from "../../components/ConfirmModal.jsx";
 
 const XIcon = ({ className = "h-5 w-5" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -42,6 +43,7 @@ function Avatar({ member }) {
 function GroupModal({ gameId, onClose }) {
   const queryClient = useQueryClient();
   const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [memberToWarn, setMemberToWarn] = useState(null);
 
   const { data: group, isLoading } = useQuery({
     queryKey: ["admin-group", gameId],
@@ -52,7 +54,13 @@ function GroupModal({ gameId, onClose }) {
   const warnMutation = useMutation({
     mutationFn: async (studentId) => api.post(`/admin/students/${studentId}/warn/${gameId}/`),
     onSuccess: (res) => {
-      setFeedback({ type: "success", message: res.data.detail });
+      const memberName = memberToWarn ? `${memberToWarn.first_name} ${memberToWarn.last_name}` : "Cet étudiant";
+      setFeedback({
+        type: "success",
+        message: res.data.is_suspended
+          ? `Le compte de ${memberName} a été suspendu avec succès.`
+          : `Avertissement envoyé à ${memberName}.`,
+      });
       queryClient.invalidateQueries(["admin-group", gameId]);
     },
     onError: (err) => {
@@ -64,7 +72,12 @@ function GroupModal({ gameId, onClose }) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div
         className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -137,15 +150,8 @@ function GroupModal({ gameId, onClose }) {
 
                     <button
                       onClick={() => {
-                        const msg = isSuspended
-                          ? null
-                          : warningCount === 0
-                          ? `Envoyer un premier avertissement à ${member.first_name} ${member.last_name} ?`
-                          : `Ceci est le second avertissement pour ${member.first_name} ${member.last_name} — son compte sera automatiquement suspendu. Continuer ?`;
                         if (isSuspended) return;
-                        if (window.confirm(msg)) {
-                          warnMutation.mutate(member.student_id);
-                        }
+                        setMemberToWarn(member);
                       }}
                       disabled={isSuspended || warnMutation.isPending}
                       className="flex-none rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold uppercase text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -159,12 +165,36 @@ function GroupModal({ gameId, onClose }) {
           </>
         )}
       </div>
+      <ConfirmModal
+        open={!!memberToWarn}
+        title={memberToWarn?.warning_count ? "Second avertissement" : "Envoyer un avertissement"}
+        message={
+          memberToWarn?.warning_count
+            ? `Le compte de ${memberToWarn.first_name} ${memberToWarn.last_name} sera automatiquement suspendu après cet avertissement.`
+            : `Souhaitez-vous envoyer un premier avertissement à ${memberToWarn?.first_name} ${memberToWarn?.last_name} ?`
+        }
+        detail={
+          memberToWarn?.warning_count
+            ? "Cette action est définitive et entraînera la suspension du compte."
+            : "L'avertissement sera enregistré dans le dossier de l'étudiant."
+        }
+        confirmLabel="Envoyer l'avertissement"
+        pending={warnMutation.isPending}
+        onClose={() => setMemberToWarn(null)}
+        onConfirm={() => {
+          warnMutation.mutate(memberToWarn.student_id, {
+            onSettled: () => setMemberToWarn(null),
+          });
+        }}
+      />
     </div>
   );
 }
 
 export default function AdminGroups() {
   const [selectedGameId, setSelectedGameId] = useState(null);
+  const [dateFilter, setDateFilter] = useState("");
+  const [terrainFilter, setTerrainFilter] = useState("");
 
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ["admin-groups"],
@@ -172,6 +202,15 @@ export default function AdminGroups() {
   });
 
   if (isLoading) return <div className="p-8 text-center font-medium text-gray-500">Chargement des groupes...</div>;
+
+  const terrains = [...new Set(groups.map((group) => group.terrain_name).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "fr")
+  );
+  const filteredGroups = groups.filter((group) => {
+    const matchesDate = !dateFilter || group.date === dateFilter;
+    const matchesTerrain = !terrainFilter || group.terrain_name === terrainFilter;
+    return matchesDate && matchesTerrain;
+  });
 
   return (
     <div className="space-y-6">
@@ -182,13 +221,55 @@ export default function AdminGroups() {
         </p>
       </div>
 
+      {groups.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+          <label className="flex-1 text-xs font-bold uppercase tracking-wider text-steel">
+            Date
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+              className="mt-2 block w-full rounded-xl border border-gray-200 bg-fog px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-ink outline-none transition focus:border-crimson focus:bg-white focus:ring-2 focus:ring-crimson/20"
+            />
+          </label>
+          <label className="flex-1 text-xs font-bold uppercase tracking-wider text-steel">
+            Terrain
+            <select
+              value={terrainFilter}
+              onChange={(event) => setTerrainFilter(event.target.value)}
+              className="mt-2 block w-full rounded-xl border border-gray-200 bg-fog px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-ink outline-none transition focus:border-crimson focus:bg-white focus:ring-2 focus:ring-crimson/20"
+            >
+              <option value="">Tous les terrains</option>
+              {terrains.map((terrain) => (
+                <option key={terrain} value={terrain}>{terrain}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              setDateFilter("");
+              setTerrainFilter("");
+            }}
+            disabled={!dateFilter && !terrainFilter}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-steel transition-colors hover:border-crimson hover:text-crimson disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Réinitialiser
+          </button>
+        </div>
+      )}
+
       {groups.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-12 text-center">
           <p className="text-sm font-medium text-steel">Aucun match terminé pour le moment.</p>
         </div>
+      ) : filteredGroups.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-12 text-center">
+          <p className="text-sm font-medium text-steel">Aucun groupe ne correspond à ces filtres.</p>
+        </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => (
+          {filteredGroups.map((group) => (
             <div
               key={group.id}
               onClick={() => setSelectedGameId(group.id)}

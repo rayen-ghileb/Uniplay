@@ -10,6 +10,10 @@ class Game(models.Model):
         related_name="game",
     )
     is_public = models.BooleanField(default=True)
+    max_players = models.PositiveIntegerField(
+        verbose_name="taille du lobby",
+        help_text="Chosen by the owner at booking time, capped by the terrain's max capacity.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
