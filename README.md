@@ -1,583 +1,433 @@
-# UniPlay - Sports Terrain Reservation Platform
+# UniPlay
 
-## Project Overview
+UniPlay is a full-stack sports-facility reservation and student game-lobby platform for Universite ESPRIT. Students can discover sports and terrains, reserve available time slots, create public or private games, invite classmates, and manage their reservations. Administrators and employees have a separate dashboard for managing users, sports, terrains, schedules, reservations, groups, reclamations, and conduct warnings.
 
-UniPlay is a full-stack web application designed for Université ESPRIT to modernize and streamline the booking of sports terrains. The platform enables students to easily reserve sports facilities (Padel, Football, Basketball) online while providing administrators with comprehensive management tools.
+The application is composed of:
 
-**Version:** 1.0  
-**Status:** Development  
-**Last Updated:** July 2026
+- **Backend:** Django and Django REST Framework REST API.
+- **Frontend:** React single-page application built with Vite.
+- **Database:** PostgreSQL.
+- **Authentication:** JWT access and refresh tokens.
+- **Uploaded files:** Django media files for profile photos, sport icons, and terrain photos.
 
----
+> The primary interface text is currently in French.
 
-## Technology Stack
+## Features
 
-### Backend
-- **Framework:** Django 6.0+
-- **API:** Django REST Framework (DRF)
-- **Database:** PostgreSQL
-- **Authentication:** JWT (JSON Web Tokens) via djangorestframework-simplejwt
-- **CORS:** django-cors-headers
-- **Documentation:** drf-spectacular
-- **Image Processing:** Pillow
-- **Environment:** python-dotenv
+### Student features
 
-### Frontend
-- **Framework:** React.js 19+
-- **Build Tool:** Vite
-- **HTTP Client:** Axios
-- **State Management:** TanStack React Query
-- **Form Handling:** React Hook Form
-- **Routing:** React Router v6
-- **Styling:** TailwindCSS 3
-- **Linting:** ESLint
-- **Formatting:** Prettier
+- Register with a student matricule, email, identity details, class, speciality, phone number, sex, date of birth, and optional profile photo.
+- Wait for administrator approval before logging in.
+- Log in with JWT authentication and refresh an expired access token.
+- Request a password reset by email, confirm a reset, and change a password while logged in.
+- Browse active sports and their terrains.
+- View terrain photos, capacity, status, campus information, opening hours, and available time slots.
+- Book a terrain slot and automatically create a game lobby in one operation.
+- Choose a public lobby that other students can browse or a private lobby that requires invitations.
+- Set the lobby size up to the terrain capacity.
+- Invite students by matricule, accept or decline invitations, join public games, leave games, and let the owner remove participants.
+- Resize a lobby while respecting current occupancy and terrain capacity.
+- Receive notifications for invitations, joins, departures, cancellations, warnings, and other game activity.
+- View active games, pending invitations, completed games, cancelled games, and reservation history.
+- Cancel eligible reservations. Student cancellation is allowed only at least 12 hours before the slot starts.
+- View and edit profile information, upload a profile photo, and send reclamations to the administration.
 
-### Database
-- **DBMS:** PostgreSQL
-- **Client Tools:** pgAdmin, DBeaver
+### Administrator and employee features
 
----
+- View dashboard statistics for students, reservations, cancellations, and reservation status.
+- Approve, deactivate, delete, search, and manage student accounts.
+- Manage application administrator status. Superadministrators control administrator role changes.
+- View student details and manage student groups.
+- Create, edit, deactivate, and manage sports.
+- Create and edit terrains, including capacity, slot duration, opening hours, status, and photos.
+- Generate current-month and next-month time slots.
+- View a monthly planning grid for a selected terrain.
+- Search, inspect, cancel, and export global reservations as CSV.
+- Read reclamations and inspect the sender's account details.
+- Review game groups, participants, notifications, and conduct warnings.
 
 ## Architecture
 
-### Overall Design
-UniPlay follows a **Client-Server architecture** with a **decoupled frontend and backend**:
+```text
+React/Vite frontend (:5173)
+        |
+        | JSON and multipart HTTP requests
+        v
+Django REST Framework API (:8000/api)
+        |
+        +-- JWT authentication
+        +-- Accounts and password reset
+        +-- Sports, terrains, and time slots
+        +-- Reservations and participants
+        +-- Games, invitations, and notifications
+        +-- Admin dashboard APIs
+        |
+        v
+PostgreSQL (:5432)
 
-```
-┌─────────────────────────┐
-│   React Frontend (SPA)   │
-│  - Pages, Components     │
-│  - State Management      │
-│  - Routing               │
-└────────────┬────────────┘
-             │
-             │ HTTP/REST API
-             │ JSON
-             │
-┌────────────▼────────────┐
-│   Django Backend        │
-│  - Models, Views        │
-│  - Business Logic       │
-│  - Authentication       │
-└────────────┬────────────┘
-             │
-             │ SQL Queries
-             │
-┌────────────▼────────────┐
-│    PostgreSQL DB        │
-│  - Tables, Constraints  │
-│  - Data Persistence     │
-└─────────────────────────┘
+Development uploads are served from backend/media/.
 ```
 
-### Backend Architecture - MTV (Modified MVC)
-- **Models** (`models.py`): Database schema and business entities
-- **Views** (`views.py`): Request handlers and business logic (Controller layer)
-- **Templates/Serializers** (`serializers.py`): Data validation and JSON transformation
-- **URLs** (`urls.py`): Route mapping to views
+## Repository structure
 
----
-
-## Project Structure
-
-```
+```text
 UniPlay/
 ├── backend/
-│   ├── config/
-│   │   ├── settings.py           # Django settings
-│   │   ├── urls.py               # Root URL configuration
-│   │   ├── asgi.py               # ASGI application
-│   │   └── wsgi.py               # WSGI application
-│   │
-│   ├── apps/
-│   │   ├── accounts/
-│   │   │   ├── models.py         # User model
-│   │   │   ├── serializers.py    # User serializers
-│   │   │   ├── views.py          # Auth views (login, logout, profile)
-│   │   │   ├── urls.py           # Auth routes
-│   │   │   ├── permissions.py    # Custom permissions
-│   │   │   ├── admin.py          # Django admin config
-│   │   │   ├── apps.py           # App configuration
-│   │   │   └── migrations/       # Database migrations
-│   │   │
-│   │   ├── sports/
-│   │   │   ├── models.py         # Sport, Terrain models
-│   │   │   ├── serializers.py    # Sport/Terrain serializers
-│   │   │   ├── views.py          # Sports/Terrains API views
-│   │   │   ├── urls.py           # Sports routes
-│   │   │   ├── admin.py          # Django admin
-│   │   │   ├── apps.py           # App config
-│   │   │   └── migrations/       # DB migrations
-│   │   │
-│   │   ├── reservations/
-│   │   │   ├── models.py         # TimeSlot, Reservation, Participant
-│   │   │   ├── serializers.py    # Reservation serializers
-│   │   │   ├── views.py          # Booking API views
-│   │   │   ├── urls.py           # Reservation routes
-│   │   │   ├── permissions.py    # Booking permissions
-│   │   │   ├── admin.py          # Django admin
-│   │   │   ├── apps.py           # App config
-│   │   │   └── migrations/       # DB migrations
-│   │   │
-│   │   ├── admin_panel/
-│   │   │   ├── views.py          # Admin dashboard views
-│   │   │   ├── serializers.py    # Admin serializers
-│   │   │   ├── urls.py           # Admin routes
-│   │   │   └── permissions.py    # Admin permissions
-│   │   │
-│   │   └── common/
-│   │       ├── permissions.py    # Shared permissions
-│   │       ├── pagination.py     # Pagination classes
-│   │       ├── exceptions.py     # Custom exceptions
-│   │       └── utils.py          # Utility functions
-│   │
-│   ├── manage.py                 # Django CLI
-│   ├── requirements.txt          # Python dependencies
-│   └── .env                      # Environment variables
-│
+│   ├── manage.py
+│   ├── config/                 Django settings, root URLs, ASGI, WSGI
+│   ├── apps/accounts/          Users, authentication, password reset, reclamations
+│   ├── apps/sports/            Sports, terrains, and public time-slot lookup
+│   ├── apps/reservations/      Time slots, reservations, and participants
+│   ├── apps/games/             Game lobbies, invitations, and notifications
+│   ├── apps/admin_panel/       Admin dashboard API and planning tools
+│   └── media/                  Development-uploaded files
 ├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── HomePage.jsx
-│   │   │   ├── SportPage.jsx
-│   │   │   ├── TerrainPage.jsx
-│   │   │   ├── ReservationPage.jsx
-│   │   │   ├── MyReservationsPage.jsx
-│   │   │   └── AdminDashboard.jsx
-│   │   │
-│   │   ├── components/
-│   │   │   ├── SportWidget.jsx
-│   │   │   ├── TerrainCard.jsx
-│   │   │   ├── Calendar.jsx
-│   │   │   ├── ReservationForm.jsx
-│   │   │   ├── ParticipantInput.jsx
-│   │   │   └── AdminTable.jsx
-│   │   │
-│   │   ├── services/
-│   │   │   ├── api.js            # Axios instance and API calls
-│   │   │   └── auth.js           # JWT token management
-│   │   │
-│   │   ├── context/
-│   │   │   └── AuthContext.jsx   # Global auth state
-│   │   │
-│   │   ├── router/
-│   │   │   └── ProtectedRoute.jsx # Auth-guarded routes
-│   │   │
-│   │   ├── hooks/
-│   │   │   ├── useAuth.js
-│   │   │   └── useReservation.js
-│   │   │
-│   │   ├── styles/
-│   │   │   ├── index.css
-│   │   │   └── tailwind.css
-│   │   │
-│   │   ├── assets/
-│   │   │   └── images/
-│   │   │
-│   │   └── App.jsx
-│   │
-│   ├── public/
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── .gitignore
-│
-├── .gitignore                    # Root git ignore
-├── README.md                     # This file
-└── .env.example                  # Environment template
-
+│   ├── public/images/          Public fallback and sport images
+│   └── src/
+│       ├── pages/              Student and admin pages
+│       ├── components/         Shared layouts and booking/game components
+│       ├── services/           Axios API clients
+│       ├── context/             Authentication context
+│       └── router/              Protected and admin route guards
+├── AI_PROJECT_CONTEXT.md       Technical context for maintainers
+└── UNIPLAY_AI_HANDOFF.md       Detailed implementation handoff
 ```
 
----
+## Prerequisites
 
-## Database Models
+Install the following before starting:
 
-### 1. User (Accounts App)
-Extends Django's `AbstractUser` for custom authentication.
+- Windows 10 or later.
+- Python 3.12 or newer. The pinned backend dependencies are verified with Python 3.12.4.
+- Node.js and npm. Node.js 20 LTS or newer is recommended for the current Vite toolchain.
+- PostgreSQL 14 or newer, with the PostgreSQL service running.
+- Git.
 
-**Fields:**
-- `id` (Primary Key)
-- `username` (String, unique) - Student matricule
-- `email` (Email, unique)
-- `first_name` (String)
-- `last_name` (String)
-- `is_admin` (Boolean) - Custom admin flag
-- `is_active` (Boolean) - Account status
-- `password` (Hashed)
+Backend dependencies are declared in the root `requirements.txt`. The frontend dependencies are declared in `frontend/package.json`. The repository does not currently include an `.env.example` file.
 
-**Relationships:**
-- `organized_reservations` → Reservation (one-to-many)
-- `participations` → Participant (one-to-many)
+## Clone the project
 
----
-
-### 2. Sport (Sports App)
-Represents a sport type (Padel, Football, Basketball).
-
-**Fields:**
-- `id` (Primary Key)
-- `name` (String, unique) - Sport name
-- `description` (Text) - Detailed description
-- `icon` (Image) - Sport icon/logo
-- `is_active` (Boolean) - Availability flag
-
-**Relationships:**
-- `terrains` → Terrain (one-to-many)
-
----
-
-### 3. Terrain (Sports App)
-Represents a physical sports facility.
-
-**Fields:**
-- `id` (Primary Key)
-- `name` (String)
-- `sport_id` (Foreign Key) → Sport
-- `capacity` (Integer) - Max participants
-- `photo` (Image)
-- `status` (Choice: AVAILABLE, MAINTENANCE, INACTIVE)
-- `opening_hours` (JSON) - Day-by-day schedule
-
-**Relationships:**
-- `sport` → Sport (many-to-one)
-- `timeslots` → TimeSlot (one-to-many)
-- `reservations` → Reservation (one-to-many)
-
-**Example opening_hours JSON:**
-```json
-{
-  "monday": ["08:00", "22:00"],
-  "tuesday": ["08:00", "22:00"],
-  "wednesday": ["08:00", "22:00"],
-  "thursday": ["08:00", "22:00"],
-  "friday": ["08:00", "22:00"],
-  "saturday": ["09:00", "20:00"],
-  "sunday": null
-}
+```powershell
+git clone <repository-url>
+cd UniPlay
 ```
 
----
+Replace `<repository-url>` with the URL of this repository.
 
-### 4. TimeSlot (Reservations App)
-Represents an available booking window for a terrain.
+## Backend setup
 
-**Fields:**
-- `id` (Primary Key)
-- `terrain_id` (Foreign Key) → Terrain
-- `date` (Date)
-- `start_time` (Time)
-- `end_time` (Time)
-- `is_available` (Boolean) - Availability status
+Open PowerShell in the repository root and create a virtual environment if you do not already have one:
 
-**Constraints:**
-- Unique per terrain/date/start_time/end_time window
-- `start_time < end_time`
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-**Relationships:**
-- `terrain` → Terrain (many-to-one)
-- `reservations` → Reservation (one-to-many)
+If PowerShell blocks script activation, use the current terminal only:
 
----
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
 
-### 5. Reservation (Reservations App)
-Represents a confirmed booking.
+Install the backend dependencies from the repository requirements file:
 
-**Fields:**
-- `id` (Primary Key)
-- `terrain_id` (Foreign Key) → Terrain
-- `timeslot_id` (Foreign Key) → TimeSlot
-- `organizer_id` (Foreign Key) → User
-- `created_at` (DateTime, auto-set)
-- `status` (Choice: CONFIRMED, CANCELLED)
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-**Constraints:**
-- Unique per timeslot (one booking per timeslot)
+The requirements file pins the direct runtime dependencies used by the Django API, including Django REST Framework, JWT authentication, CORS support, OpenAPI documentation, PostgreSQL connectivity, and image processing.
 
-**Relationships:**
-- `terrain` → Terrain (many-to-one)
-- `timeslot` → TimeSlot (many-to-one)
-- `organizer` → User (many-to-one)
-- `participants` → Participant (one-to-many)
+### Create the PostgreSQL database
 
----
+Create a PostgreSQL database named `UniPlay` and ensure PostgreSQL is listening on `localhost:5432`.
 
-### 6. Participant (Reservations App)
-Represents a student invited to play in a reservation.
+Using `psql` as a PostgreSQL administrator:
 
-**Fields:**
-- `id` (Primary Key)
-- `reservation_id` (Foreign Key) → Reservation
-- `student_id` (Foreign Key) → User
-- `first_name` (String) - Snapshot for booking history
-- `last_name` (String) - Snapshot for booking history
-- `added_at` (DateTime, auto-set)
+```sql
+CREATE DATABASE "UniPlay";
+```
 
-**Constraints:**
-- Unique per reservation/student (no duplicates)
+The current local settings use the PostgreSQL user `postgres`. The database connection values are defined in `backend/config/settings.py`. Before sharing or deploying the project, move the database password, Django secret key, allowed hosts, and email credentials into environment variables. Do not commit real credentials.
 
-**Relationships:**
-- `reservation` → Reservation (many-to-one)
-- `student` → User (many-to-one)
+### Configure the backend
 
----
+The live settings currently assume:
 
-## API Endpoints
+| Setting | Development value |
+|---|---|
+| Database engine | PostgreSQL |
+| Database name | `UniPlay` |
+| Database host | `localhost` |
+| Database port | `5432` |
+| API server | `127.0.0.1:8000` |
+| Frontend URL | `http://localhost:5173` |
+| Media URL | `/media/` |
+| Time zone | UTC |
 
-### Authentication (`/api/auth/`)
+Password reset uses Gmail SMTP in the current settings. Configure a valid sender and Gmail app password in `backend/config/settings.py` or, preferably, replace those values with environment variables. If email is not configured, the rest of the local application can still be used, but password-reset email delivery will not work.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login/` | User login, returns JWT tokens |
-| POST | `/api/auth/refresh/` | Refresh access token |
-| POST | `/api/auth/logout/` | Logout and blacklist token |
-| GET | `/api/auth/me/` | Get current user profile |
+Apply migrations and create an initial Django superuser:
 
----
+```powershell
+cd backend
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py check
+```
 
-### Sports & Terrains (`/api/sports/`, `/api/terrains/`)
+The application-level admin dashboard uses the custom `is_admin` field on `accounts.User`. A Django superuser is useful for `/admin/`, but you may also need to mark an application user as `is_admin=True` through Django admin or the database before that user can access `/admin` in the React application.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/sports/` | List all active sports |
-| GET | `/api/sports/{id}/terrains/` | List terrains for a sport |
-| GET | `/api/terrains/` | List all terrains |
-| GET | `/api/terrains/{id}/` | Get terrain details |
-| GET | `/api/terrains/{id}/timeslots/` | Get available timeslots |
+Start the API:
 
----
+```powershell
+python manage.py runserver 127.0.0.1:8000
+```
 
-### Reservations (`/api/reservations/`)
+Keep this terminal running. The API will be available at `http://127.0.0.1:8000/`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/reservations/` | List user's reservations |
-| POST | `/api/reservations/` | Create new reservation |
-| GET | `/api/reservations/{id}/` | Get reservation details |
-| DELETE | `/api/reservations/{id}/` | Cancel reservation |
-| POST | `/api/users/validate-ids/` | Validate participant IDs |
+## Frontend setup
 
----
+Open a second PowerShell terminal:
 
-### Administration (`/api/admin/`)
+```powershell
+cd frontend
+npm install
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET/POST | `/api/admin/sports/` | List/Create sports |
-| PUT/DELETE | `/api/admin/sports/{id}/` | Update/Delete sport |
-| GET/POST | `/api/admin/terrains/` | List/Create terrains |
-| PUT/DELETE | `/api/admin/terrains/{id}/` | Update/Delete terrain |
-| GET | `/api/admin/reservations/` | List all reservations (filterable) |
-| DELETE | `/api/admin/reservations/{id}/` | Cancel reservation (admin) |
-| GET | `/api/admin/stats/` | Dashboard statistics & KPIs |
+Create `frontend/.env` with:
 
----
+```dotenv
+VITE_API_URL=/api
+```
 
-## User Flows
+This value makes Axios call the `/api` prefix and lets Vite proxy API requests to `http://127.0.0.1:8000` during development. A direct backend URL can be used instead, for example `VITE_API_URL=http://127.0.0.1:8000/api`, provided the backend CORS configuration allows the frontend origin.
 
-### Student Reservation Flow
-1. Student logs in with matricule + password
-2. Dashboard displays 3 sport widgets (Padel, Football, Basketball)
-3. Student clicks sport → sees available terrains
-4. Student selects terrain → sees weekly/daily calendar
-5. Student picks available timeslot → reservation form opens
-6. Student enters participant IDs (backend validates)
-7. System confirms reservation is created
-8. Organizer automatically added as first participant
-9. Other participants invited and notified
+Start the frontend:
 
-### Admin Management Flow
-1. Admin logs in with admin account
-2. Accesses admin dashboard with KPIs
-3. Can CRUD sports, terrains, timeslots
-4. Can view all reservations
-5. Can cancel reservations
-6. Can export reservation data (CSV/Excel)
-7. Can manage student accounts (activate/deactivate)
+```powershell
+npm run dev
+```
 
----
+Open `http://localhost:5173` in a browser.
 
-## Security Features
+Useful frontend commands:
 
-- **JWT Authentication:** Stateless token-based auth with configurable expiration
-- **Password Hashing:** bcrypt via Django's built-in system
-- **CSRF Protection:** Django middleware
-- **XSS Prevention:** React's built-in escaping + Django templates
-- **SQL Injection Prevention:** Django ORM parameterized queries
-- **HTTPS/TLS:** Required for production (TLS 1.2+)
-- **Data Isolation:** Students see only their own reservations
-- **Audit Logging:** Admin actions tracked (optional)
+```powershell
+npm run build
+npm run preview
+npm run lint
+```
 
----
+## First-use workflow
 
-## Performance Requirements
+1. Open `http://localhost:5173/register`.
+2. Create a student account using a matricule and the required profile information.
+3. Approve the account from the admin interface or Django admin by setting it active.
+4. Log in at `/login`.
+5. Create sports and terrains from the admin dashboard if the database is empty.
+6. Configure each terrain's opening hours, for example:
 
-| Metric | Target |
-|--------|--------|
-| Homepage load time | < 2 seconds |
-| API response time (CRUD) | < 500 ms |
-| Concurrent users | > 200 |
-| Uptime | > 99.5% |
-
----
-
-## Setup Instructions
-
-### Backend Setup
-
-1. **Navigate to backend folder:**
-   ```bash
-   cd backend
+   ```json
+   {"start": "08:00", "end": "22:00"}
    ```
 
-2. **Create virtual environment:**
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
-   ```
+7. Generate current or next-month slots from the terrain management page.
+8. As a student, select a sport, open a terrain, select a time slot, and create a public or private game.
+9. Browse public games from `/jeux`, or manage owned games and invitations from `/mes-jeux`.
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Important business rules
 
-4. **Configure environment:**
-   Create `.env` in backend folder:
-   ```
-   DEBUG=True
-   SECRET_KEY=your-secret-key-here
-   DATABASE_URL=postgresql://user:password@localhost:5432/UniPlay
-   ```
+- Newly registered accounts are inactive until approved.
+- Suspended or deactivated users cannot log in.
+- A terrain can be `available`, `maintenance`, or `inactive`.
+- Maintenance terrains remain visible but cannot be booked in the student interface.
+- A time slot must belong to the selected terrain, must not be in the past, and can have only one confirmed reservation.
+- A game lobby cannot exceed the terrain capacity.
+- Pending invitations count toward lobby occupancy.
+- Only the game owner can resize a lobby or remove another participant.
+- Public games can be joined directly; private games require an invitation.
+- Student reservation cancellation is allowed only at least 12 hours before the slot starts.
+- Cancellations preserve historical reservation and game records instead of deleting them.
 
-5. **Run migrations:**
-   ```bash
-   python manage.py migrate
-   ```
+## Frontend routes
 
-6. **Create superuser:**
-   ```bash
-   python manage.py createsuperuser
-   ```
+### Public routes
 
-7. **Run development server:**
-   ```bash
-   python manage.py runserver
-   ```
+| Route | Purpose |
+|---|---|
+| `/login` | Log in |
+| `/register` | Request a student account |
+| `/forgot-password` | Request a password reset |
+| `/reset-password` | Complete a password reset |
 
----
+### Student routes
 
-### Frontend Setup
+| Route | Purpose |
+|---|---|
+| `/` | Home page, sports, and upcoming reservations |
+| `/sports/:sportId` | Terrains and booking entry point |
+| `/reservations` | Finished and cancelled reservation history |
+| `/profile` | View profile |
+| `/parametres/profil` | Edit profile and photo |
+| `/parametres/mot-de-passe` | Change password |
+| `/parametres/reclamations` | Send a reclamation |
+| `/jeux` | Browse public games |
+| `/mes-jeux` | Manage games and invitations |
+| `/games/:gameId` | Open a game lobby |
 
-1. **Navigate to frontend folder:**
-   ```bash
-   cd frontend
-   ```
+### Admin routes
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+| Route | Purpose |
+|---|---|
+| `/admin` | Dashboard |
+| `/admin/users` | User approval and account management |
+| `/admin/students` | Student directory |
+| `/admin/groups` | Game group management |
+| `/admin/sports` | Sports management |
+| `/admin/terrains` | Terrain and slot management |
+| `/admin/planning` | Monthly terrain planning |
+| `/admin/reservations` | Global reservations and CSV export |
+| `/admin/reclamations` | Read student reclamations |
 
-3. **Configure environment:**
-   Create `.env.local`:
-   ```
-   VITE_API_URL=http://localhost:8000/api
-   ```
+## API overview
 
-4. **Run development server:**
-   ```bash
-   npm run dev
-   ```
+All API paths are prefixed with `/api`. Protected requests use:
 
-5. **Build for production:**
-   ```bash
-   npm run build
-   ```
+```http
+Authorization: Bearer <access-token>
+```
 
----
+### Authentication and accounts
 
-## Testing
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/register/` | Create an inactive student account |
+| `POST` | `/api/auth/login/` | Obtain access and refresh tokens |
+| `POST` | `/api/auth/refresh/` | Refresh an access token |
+| `POST` | `/api/auth/logout/` | Blacklist a refresh token |
+| `GET` | `/api/auth/me/` | Get the current user |
+| `PATCH` | `/api/auth/me/` | Update profile data or photo |
+| `GET` | `/api/auth/users/` | List active students for invitations |
+| `POST` | `/api/auth/validate-students/` | Validate matricules |
+| `POST` | `/api/auth/password-reset/` | Request a reset email |
+| `POST` | `/api/auth/password-reset-confirm/` | Set a new password |
+| `POST` | `/api/auth/change-password/` | Change the current password |
+| `POST` | `/api/auth/reclamations/` | Submit a reclamation |
 
-### Backend
-```bash
+### Sports and reservations
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/sports/` | List active sports |
+| `GET` | `/api/sports/<id>/` | Get a sport and its terrains |
+| `GET` | `/api/sports/terrains/` | List visible terrains |
+| `GET` | `/api/sports/terrains/<id>/` | Get terrain details |
+| `GET` | `/api/sports/terrains/<id>/timeslots/` | List available slots; supports `start_date` and `days` |
+| `GET` | `/api/reservations/` | List the current user's reservations |
+| `POST` | `/api/reservations/` | Create a reservation with optional participants |
+| `GET` | `/api/reservations/<id>/` | Get reservation details |
+| `DELETE` | `/api/reservations/<id>/` | Cancel an eligible reservation |
+
+### Games and notifications
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/games/` | Reserve a slot and create a game lobby |
+| `GET` | `/api/games/mine/` | List active, pending, historical, and cancelled games |
+| `GET` | `/api/games/browse/` | Browse upcoming public games; supports `sport` |
+| `GET` | `/api/games/<id>/` | Get a lobby and its participants |
+| `POST` | `/api/games/<id>/invite/` | Invite a student |
+| `POST` | `/api/games/<id>/accept/` | Accept an invitation |
+| `POST` | `/api/games/<id>/decline/` | Decline an invitation |
+| `POST` | `/api/games/<id>/join/` | Join a public game |
+| `POST` | `/api/games/<id>/leave/` | Leave or, for the owner, manage a participant |
+| `POST` | `/api/games/<id>/resize/` | Change the lobby size |
+| `GET` | `/api/games/notifications/` | List notifications |
+| `POST` | `/api/games/notifications/read/` | Mark notifications as read |
+| `DELETE` | `/api/games/notifications/<id>/` | Delete a notification |
+
+### Admin API and documentation
+
+| Endpoint | Purpose |
+|---|---|
+| `/api/admin/dashboard/stats/` | Dashboard statistics |
+| `/api/admin/sports/` | Admin sport CRUD |
+| `/api/admin/terrains/` | Admin terrain CRUD and soft deletion |
+| `/api/admin/terrains/<id>/generate_slots/` | Generate `current` or `next` slots |
+| `/api/admin/planning/` | Monthly planning data |
+| `/api/admin/reservations/` | Search and manage reservations |
+| `/api/admin/reservations/export_csv/` | Export reservations as CSV |
+| `/api/admin/reclamations/` | List and inspect reclamations |
+| `/api/admin/groups/` | Manage game groups |
+| `/api/schema/swagger-ui/` | Interactive Swagger API documentation |
+| `/api/schema/` | OpenAPI schema |
+
+## Validation and checks
+
+From `backend/`:
+
+```powershell
+python manage.py check
 python manage.py test
 ```
 
-### Frontend
-```bash
-npm test
+From `frontend/`:
+
+```powershell
+npm run lint
+npm run build
 ```
 
----
-
-## Deployment
-
-### Backend (Django)
-- Use Gunicorn + Nginx
-- PostgreSQL hosted on cloud (AWS RDS, Heroku, etc.)
-- Static files served via whitenoise or CDN
-- Environment variables via `.env`
-
-### Frontend (React)
-- Build: `npm run build`
-- Deploy to Vercel, Netlify, or static hosting
-- Set API endpoint to production backend
-
----
-
-## Contributing Guidelines
-
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Commit with clear messages: `git commit -m "Add feature X"`
-3. Push to branch: `git push origin feature/your-feature`
-4. Open pull request for review
-
----
-
-## Development Roadmap
-
-**Phase 1 (Current):** MVP with core booking functionality  
-**Phase 2:** Payment integration + notifications  
-**Phase 3:** Mobile app (React Native)  
-**Phase 4:** Analytics dashboard + advanced filtering  
-**Phase 5:** AI-powered recommendations  
-
----
+The current repository contains application test modules, but business-rule coverage is limited. The frontend build and Django system check are useful baseline validations; lint may report pre-existing source issues in the current codebase.
 
 ## Troubleshooting
 
-### Django won't start
-- Check PostgreSQL is running: `psql -U postgres`
-- Verify DB credentials in settings.py
-- Run `python manage.py check`
+### The frontend cannot reach the API
 
-### Migrations fail
-- Ensure migrations folder has `__init__.py`
-- Run `python manage.py makemigrations`
-- Check for model import errors
+- Confirm the backend is running on `127.0.0.1:8000`.
+- Confirm `frontend/.env` contains `VITE_API_URL=/api`.
+- Restart Vite after changing `.env`.
+- Check that the browser is using `http://localhost:5173`, which is included in the configured local CORS origins.
 
-### CORS errors
-- Verify `django-cors-headers` is in `INSTALLED_APPS`
-- Check `CORS_ALLOWED_ORIGINS` in settings.py includes frontend URL
+### Django cannot connect to PostgreSQL
 
-### React won't connect to API
-- Verify backend is running on `http://localhost:8000`
-- Check `.env.local` has correct `VITE_API_URL`
-- Open browser DevTools → Network tab to inspect requests
+- Confirm the PostgreSQL service is running.
+- Confirm the `UniPlay` database exists.
+- Confirm the configured user, password, host, and port in `backend/config/settings.py`.
+- Run `python manage.py check` from `backend/` after fixing the connection.
 
----
+### A student cannot log in after registration
 
-## License
+Registration intentionally creates an inactive account. An administrator must approve the account before login is allowed.
 
-Internal Project - Université ESPRIT
+### No time slots are available
 
----
+Create or edit a terrain with valid `opening_hours`, then generate slots for the current or next month. The slot generator expects an object containing `start` and `end`, such as `{ "start": "08:00", "end": "22:00" }`.
 
-## Contact & Support
+### Password reset emails are not delivered
 
-**Project Owner:** Université ESPRIT  
-**Development Team:** [Your Name]  
-**Last Updated:** July 2, 2026
+Check the Gmail SMTP configuration, use a Gmail app password, and confirm that the sender account permits SMTP access. Never commit those credentials.
 
-For questions or issues, please contact the development team or create an issue on GitHub.
+## Security and deployment notes
+
+This repository is configured for local development, not production deployment. Before deploying:
+
+- Move `SECRET_KEY`, database credentials, SMTP credentials, and frontend URLs to environment variables.
+- Set `DEBUG=False` and configure `ALLOWED_HOSTS`.
+- Configure production CORS and CSRF trusted origins.
+- Serve static and media files through a proper web server or object storage.
+- Use HTTPS and secure cookie/token handling.
+- Review the legacy account and sports admin endpoints, which should be protected consistently before production use.
+- Add automated backend tests for permissions, booking races, slot generation, password reset, and game workflows.
+- Add frontend end-to-end tests for authentication, booking, invitations, and admin workflows.
+
+## Further documentation
+
+- [AI_PROJECT_CONTEXT.md](AI_PROJECT_CONTEXT.md) contains a maintainer-oriented architecture and behavior guide.
+- [UNIPLAY_AI_HANDOFF.md](UNIPLAY_AI_HANDOFF.md) contains a more detailed implementation handoff and current caveats.
+- [UNIPLAY_DIAGRAM_GENERATION_SPEC.md](UNIPLAY_DIAGRAM_GENERATION_SPEC.md) documents diagram-generation requirements.
+- [UNIPLAY_PRESENTATION_BRIEF.md](UNIPLAY_PRESENTATION_BRIEF.md) contains the presentation brief.
